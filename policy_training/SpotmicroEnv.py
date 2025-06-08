@@ -393,8 +393,8 @@ class SpotmicroEnv(gym.Env):
         if self._action_counter == int(self._SIM_FREQUENCY / self._CONTROL_FREQUENCY): # apply new action
             observation = self._step_simulation(action)
             self._action_counter = 0
-            self._previous_action = action.copy()
             reward, reward_info = self._calculate_reward(action)
+            self._previous_action = action.copy()
         else:                                                                         # reuse last action
             self._action_counter += 1
             observation = self._step_simulation(self._previous_action)
