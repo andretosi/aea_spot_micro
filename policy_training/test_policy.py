@@ -4,16 +4,17 @@ from stable_baselines3 import PPO
 from SpotmicroEnv import SpotmicroEnv
 from reward_function import reward_function, init_custom_state
 
+run = "walk20M-8"
 env = SpotmicroEnv(
     use_gui=True, 
     reward_fn=reward_function, 
     init_custom_state=init_custom_state, 
-    src_save_file="states/state10M-3.pkl"
+    src_save_file=f"states/state{run}.pkl"
     )
 obs, _ = env.reset()
 
 # Load your trained model
-model = PPO.load("policies/ppo_walk10M-3")  # or path to your .zip
+model = PPO.load(f"policies/ppo_{run}")  # or path to your .zip
 print(f"num steps: {env.num_steps}")
 
 
@@ -21,7 +22,6 @@ print(f"num steps: {env.num_steps}")
 for _ in range(3001):
     action, _states = model.predict(obs, deterministic=True)
     obs, reward, terminated, truncated, info = env.step(action)
-    print(f"Height: {env.agent_base_position[2]}")
 
     if terminated or truncated:
         print("Terminated")

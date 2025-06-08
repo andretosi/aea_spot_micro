@@ -83,9 +83,9 @@ class SpotmicroEnv(gym.Env):
 
         #If the agents is in this state, we terminate the simulation. Should quantize the fact that it has fallen, maybe a threshold?
         self._target_state = {
-            "min_height": 0.15, #meters?
+            "min_height": 0.10, #meters?
             "max_height": 0.30,
-            "max_pitchroll": np.radians(45)
+            "max_pitchroll": np.radians(55)
         }
 
         if reward_fn is None:
@@ -394,8 +394,8 @@ class SpotmicroEnv(gym.Env):
             observation = self._step_simulation(action)
             self._update_history()
             self._action_counter = 0
-            self._previous_action = action.copy()
             reward, reward_info = self._calculate_reward(action)
+            self._previous_action = action.copy()
         else:                                                                         # reuse last action
             self._action_counter += 1
             observation = self._step_simulation(self._previous_action)
