@@ -267,7 +267,7 @@ class SpotmicroEnv(gym.Env):
         self._episode_step_counter = 0
         self._action_counter = 0
         self._agent_state["base_position"] = (0.0 , 0.0, 0.255) #Height set specifically through trial and error
-        self._agent_state["base_orientation"] = pybullet.getQuaternionFromEuler([0,0,0])
+        self._agent_state["base_orientation"] = pybullet.getQuaternionFromEuler([0, 0, np.pi])
         self._agent_state["linear_velocity"] = np.zeros(3)
         self._agent_state["angular_velocity"] = np.zeros(3)
         self._agent_state["ground_feet_contacts"] = set()
