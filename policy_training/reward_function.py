@@ -63,11 +63,21 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     deviation_penalty = np.clip(deviation_velocity, 0, 1)
     stillness_reward = 1.0 if np.linalg.norm(linear_vel) < 0.05 else 0.0
 
+    vertical_velocity = abs(env.agent_linear_velocity[2])
+
     linear_accel = linear_vel - env.get_custom_state("prev_lin_vel")
     angular_accel = angular_vel - env.get_custom_state("prev_ang_vel")
     env.set_custom_state("prev_lin_vel", linear_vel)
     env.set_custom_state("prev_ang_vel", angular_vel)
-    acceleration_penalty = 0.5 * np.clip(np.linalg.norm(linear_accel), 0.0, 1.0) + 0.5 * np.clip(np.linalg.norm(angular_accel), 0.0, 1.0)
+    acceleration_penalty = 0.75 * np.clip(np.linalg.norm(linear_accel), 0.0, 1.0) + 0.25 * np.clip(np.linalg.norm(angular_accel), 0.0, 1.0)
+
+    #== Early velocity penalty ==
+    linear_vel_penalty = np.linalg.norm(env.agent_linear_velocity)  # Penalize body movement
+    angular_vel_penalty = np.linalg.norm(env.agent_angular_velocity)
+    _, joint_velocities = env.agent_joint_state
+    joint_vel_penalty = np.mean(np.abs(joint_velocities))
+
+    movement_penalty = 0.5 * linear_vel_penalty + 0.5 * angular_vel_penalty + 0.1 * joint_vel_penalty
 
     # === 2. Uprightness (Pitch & Roll) ===
     max_angle = np.radians(45)
@@ -77,7 +87,7 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     # === 3. Height regulation ===
     height_target = env.TARGET_HEIGHT
     height_error = abs(base_height - height_target)
-    height_reward = np.exp(-10 * height_error)
+    height_reward = np.exp(-15 * height_error)
 
     # === 4. Energy / Smoothness ===
     tmp = np.linalg.norm(action - env.agent_previous_action) / (len(action) / 2) #Normalizing, since actions are in range -1,1
@@ -87,7 +97,7 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     else:
         energy_penalty = env.get_custom_state("prev_energy_penalty")
 
-    # === 5. Contact (optional) ===
+    # === 5. Contact ===
     contact_bonus = 0.0
     if len(env.get_custom_state("previous_gfc")) >= 3:
         contact_bonus += 0.25
@@ -97,6 +107,8 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
         contact_bonus += 0.5
     else:
         contact_bonus -= 0.5
+
+    stand_bonus = 1.0 if upright_reward > 0.95 and len(contacts) >= 3 else -1
     
     distance_bonus = 0
     if env.agent_base_position[0] > env.get_custom_state("cumulative_forward_distance_bonus"):
@@ -105,33 +117,37 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     #env.set_custom_state("previous_gfc", env.agent_ground_feet_contacts)
     #distance_penalty = np.linalg.norm(np.array([0, 0, base_height]) - env.agent_base_position)
 
-    weights_dict = { 
-        "fwd_reward": 4 * fade_in_at(1_000_000, 1.25),
-        "acceleration_penalty": -2, 
-        "deviation_penalty": -1.5 * fade_in_at(1_250_000, 1.5), 
-        "stillness_reward": 0.25,
-        "uprightness": 5.5,
-        "height": 4.5, 
-        "contact_bonus": 5.5,
-        "energy_penalty": -6 * fade_in_at(750_000, 2), 
-        "effort_penalty": -5 * fade_in_at(750_000, 1.75), 
-        "total_distance_bonus": 0.25,
-        "symmetry_penalty": -2 * fade_in_at(2_000_000, 1.25),
+    weights_dict = { #Doesn't work. start penalyzing actions, motion in general.
+        "height": 5,
+        "uprightness": 5,
+        "stand_bonus": 4,
+        "contact_bonus": 4,
+        "movement_penalty": 0,
+        "fwd_reward": 0,
+        "acceleration_penalty": 0, 
+        "deviation_penalty": 0, 
+        "energy_penalty": 0, 
+        "effort_penalty": 0,
+        "total_distance_bonus": 0, 
+        "symmetry_penalty": 0,
+        "vertical_penalty": 0
     }
 
     #=== Reward weighting ===
     reward_dict = {
+        "height": height_reward,
+        "uprightness": upright_reward,
+        "stand_bonus": stand_bonus,
+        "contact_bonus": contact_bonus,
+        "movement_penalty": movement_penalty,
         "fwd_reward": fwd_reward,
         "acceleration_penalty": acceleration_penalty,
         "deviation_penalty": deviation_penalty,
-        "stilless_reward": stillness_reward,
-        "uprightness": upright_reward,
-        "height": height_reward,
-        "contact_bonus": contact_bonus,
         "energy_penalty": energy_penalty,
         "effort_penalty": effort_ema,
         "total_distance_bonus": distance_bonus,
-        "symmetry_penalty": symmetry_penalty_ema
+        "symmetry_penalty": symmetry_penalty_ema,
+        "vertical_penalty": vertical_velocity
     }
 
     for k in reward_dict.keys():

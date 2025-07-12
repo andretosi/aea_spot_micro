@@ -4,17 +4,18 @@ from stable_baselines3 import PPO
 from SpotmicroEnv import SpotmicroEnv
 from reward_function import reward_function, init_custom_state
 
-run = "walk20M-8"
+run = "stand2M-1_1600000_steps"
 env = SpotmicroEnv(
     use_gui=True, 
     reward_fn=reward_function, 
-    init_custom_state=init_custom_state, 
-    src_save_file=f"states/state{run}.pkl"
+    init_custom_state=init_custom_state#, 
+    #src_save_file=f"states/state{run}.pkl"
     )
 obs, _ = env.reset()
 
 # Load your trained model
-model = PPO.load(f"policies/ppo_{run}")  # or path to your .zip
+model = PPO.load(f"policies/stand2M-1_checkpoints/ppo_{run}")  # or path to your .zip
+env._total_steps_counter = 600_000
 print(f"num steps: {env.num_steps}")
 
 

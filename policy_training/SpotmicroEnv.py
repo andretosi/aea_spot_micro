@@ -36,7 +36,7 @@ class SpotmicroEnv(gym.Env):
         self._ACT_SPACE_SIZE = 12
         self._MAX_EPISODE_LEN = 3000
         self._TARGET_DIRECTION = np.array([1.0, 0.0, 0.0])
-        self.TARGET_HEIGHT = 0.220
+        self.TARGET_HEIGHT = 0.225
         self._SURVIVAL_REWARD = 15.0
         self._SIM_FREQUENCY = 240
         self._CONTROL_FREQUENCY = 60
@@ -83,8 +83,8 @@ class SpotmicroEnv(gym.Env):
 
         #If the agents is in this state, we terminate the simulation. Should quantize the fact that it has fallen, maybe a threshold?
         self._target_state = {
-            "min_height": 0.10, #meters?
-            "max_height": 0.30,
+            "min_height": 0.13, #meters?
+            "max_height": 0.40,
             "max_pitchroll": np.radians(55)
         }
 
@@ -196,6 +196,14 @@ class SpotmicroEnv(gym.Env):
         Returns the action taken by the agent in the previous step
         """
         return self._previous_action
+    
+    @property
+    def agent_joint_state(self) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Returns a tuple of two arrays: the first contains the positions of each joint, the second their velocities
+        """
+        pos, vel = self._get_joint_states()
+        return (pos, vel)
     
     @property
     def target_direction(self) -> np.ndarray:
