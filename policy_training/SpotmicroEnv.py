@@ -36,7 +36,7 @@ class SpotmicroEnv(gym.Env):
         self._ACT_SPACE_SIZE = 12
         self._MAX_EPISODE_LEN = 3000
         self._TARGET_DIRECTION = np.array([1.0, 0.0, 0.0])
-        self.TARGET_HEIGHT = 0.225
+        self.TARGET_HEIGHT = 0.235
         self._SURVIVAL_REWARD = 15.0
         self._SIM_FREQUENCY = 240
         self._CONTROL_FREQUENCY = 60
@@ -275,7 +275,7 @@ class SpotmicroEnv(gym.Env):
         self._episode_step_counter = 0
         self._action_counter = 0
         self._agent_state["base_position"] = (0.0 , 0.0, 0.255) #Height set specifically through trial and error
-        self._agent_state["base_orientation"] = pybullet.getQuaternionFromEuler([0,0,0])
+        self._agent_state["base_orientation"] = pybullet.getQuaternionFromEuler([0, 0, np.pi])
         self._agent_state["linear_velocity"] = np.zeros(3)
         self._agent_state["angular_velocity"] = np.zeros(3)
         self._agent_state["ground_feet_contacts"] = set()
@@ -341,8 +341,9 @@ class SpotmicroEnv(gym.Env):
 
             self._motor_joints = tuple(motor_joints) # Made immutable to avoid problems
 
-        # Setting friction
+        # Setting homing position and friction
         for joint in self._motor_joints:
+            pybullet.resetJointState(self._robot_id, joint.id, joint.mid)
             if joint.type == "foot":
                 pybullet.changeDynamics(
                     self._robot_id,

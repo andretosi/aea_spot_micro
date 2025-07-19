@@ -25,13 +25,24 @@ def init_custom_state(env: SpotmicroEnv) -> None:
     env.set_custom_state("front_legs_ids", front_legs_ids)
     env.set_custom_state("back_legs_ids", back_legs_ids)
     
+def contact_bonus_fn(env):
+    contacts = env.agent_ground_feet_contacts   
+    c_bonus = 0.0
+    if len(env.get_custom_state("previous_gfc")) >= 3:
+        c_bonus += 0.25
+    if len(contacts) >= 3:
+        c_bonus += 1
+    elif len(contacts) == 2:
+        c_bonus += 0.5
+    else:
+        c_bonus -= 0.5
+    return c_bonus
 
 def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]:
     roll, pitch, _ = pybullet.getEulerFromQuaternion(env.agent_base_orientation)
     base_height = env.agent_base_position[2]
     linear_vel = np.array(env.agent_linear_velocity)
     angular_vel = np.array(env.agent_angular_velocity)
-    contacts = env.agent_ground_feet_contacts
 
     fade_in_at = lambda start, scale_coefficient: 0 if env.num_steps < start else 1 - np.exp(- scale_coefficient * ((env.num_steps - start) / 1_000_000)) #0->1
     fade_out_at = lambda start, scale_coefficient: 1 if env.num_steps < start else np.exp(- scale_coefficient * ((env.num_steps - start) / 1_000_000)) #1->0
@@ -47,14 +58,7 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     effort_ema = ema(alpha, effort, env.get_custom_state("effort_ema"))
     env.set_custom_state("effort_ema", effort_ema)
     
-    front_legs_effort = 0
-    back_legs_effort = 0
-    for i, j in zip(env.get_custom_state("front_legs_ids"), env.get_custom_state("back_legs_ids")):
-        front_legs_effort += env.motor_joints[i].effort / env.motor_joints[i].max_torque
-        back_legs_effort += env.motor_joints[j].effort / env.motor_joints[j].max_torque
-    symmetry_penalty = np.abs((front_legs_effort - back_legs_effort) / (len(env.motor_joints) / 2))
-    symmetry_penalty_ema = ema(alpha, symmetry_penalty, env.get_custom_state("symmetry_penalty_ema"))
-    env.set_custom_state("symmetry_penalty_ema", symmetry_penalty_ema) 
+    
 
     # === 1. Forward Progress ===
     fwd_velocity = np.dot(linear_vel, env.target_direction)
@@ -64,12 +68,6 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     stillness_reward = 1.0 if np.linalg.norm(linear_vel) < 0.05 else 0.0
 
     vertical_velocity = abs(env.agent_linear_velocity[2])
-
-    linear_accel = linear_vel - env.get_custom_state("prev_lin_vel")
-    angular_accel = angular_vel - env.get_custom_state("prev_ang_vel")
-    env.set_custom_state("prev_lin_vel", linear_vel)
-    env.set_custom_state("prev_ang_vel", angular_vel)
-    acceleration_penalty = 0.75 * np.clip(np.linalg.norm(linear_accel), 0.0, 1.0) + 0.25 * np.clip(np.linalg.norm(angular_accel), 0.0, 1.0)
 
     #== Early velocity penalty ==
     linear_vel_penalty = np.linalg.norm(env.agent_linear_velocity)  # Penalize body movement
@@ -89,26 +87,11 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     height_error = abs(base_height - height_target)
     height_reward = np.exp(-15 * height_error)
 
-    # === 4. Energy / Smoothness ===
-    tmp = np.linalg.norm(action - env.agent_previous_action) / (len(action) / 2) #Normalizing, since actions are in range -1,1
-    if tmp != 0:
-        energy_penalty = tmp
-        env.set_custom_state("prev_energy_penalty", tmp)
-    else:
-        energy_penalty = env.get_custom_state("prev_energy_penalty")
-
     # === 5. Contact ===
-    contact_bonus = 0.0
-    if len(env.get_custom_state("previous_gfc")) >= 3:
-        contact_bonus += 0.25
-    if len(contacts) >= 3:
-        contact_bonus += 1
-    elif len(contacts) == 2:
-        contact_bonus += 0.5
-    else:
-        contact_bonus -= 0.5
+    contact_bonus = contact_bonus_fn(env)
+    env.set_custom_state("previous_gfc", env.agent_ground_feet_contacts)
+    stand_bonus = 1.0 if upright_reward > 0.95 and len(env.agent_ground_feet_contacts) >= 3 else 0.0
 
-    stand_bonus = 1.0 if upright_reward > 0.95 and len(contacts) >= 3 else -1
     
     distance_bonus = 0
     if env.agent_base_position[0] > env.get_custom_state("cumulative_forward_distance_bonus"):
@@ -118,19 +101,19 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     #distance_penalty = np.linalg.norm(np.array([0, 0, base_height]) - env.agent_base_position)
 
     weights_dict = { #Doesn't work. start penalyzing actions, motion in general.
-        "height": 5,
-        "uprightness": 5,
-        "stand_bonus": 4,
-        "contact_bonus": 4,
-        "movement_penalty": 0,
+        "height": 3,
+        "uprightness": 3,
+        "stand_bonus": 2,
+        "contact_bonus": 2.5,
+        "movement_penalty": -2,
+        "vertical_penalty": -1.5,
+        "effort_penalty": 0,#maybe add this
         "fwd_reward": 0,
         "acceleration_penalty": 0, 
         "deviation_penalty": 0, 
         "energy_penalty": 0, 
-        "effort_penalty": 0,
         "total_distance_bonus": 0, 
-        "symmetry_penalty": 0,
-        "vertical_penalty": 0
+        "symmetry_penalty": 0
     }
 
     #=== Reward weighting ===
@@ -141,12 +124,9 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
         "contact_bonus": contact_bonus,
         "movement_penalty": movement_penalty,
         "fwd_reward": fwd_reward,
-        "acceleration_penalty": acceleration_penalty,
         "deviation_penalty": deviation_penalty,
-        "energy_penalty": energy_penalty,
         "effort_penalty": effort_ema,
         "total_distance_bonus": distance_bonus,
-        "symmetry_penalty": symmetry_penalty_ema,
         "vertical_penalty": vertical_velocity
     }
 
