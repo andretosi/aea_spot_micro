@@ -6,7 +6,7 @@ from standing_reward_function import reward_function, init_custom_state
 from torch.utils.tensorboard import SummaryWriter
 
 TOTAL_STEPS = 1_000_000
-run = "stand1M-1"
+run = "stand1M-2"
 
 def clipped_linear_schedule(initial_value, min_value=1e-5):
     def schedule(progress_remaining):
