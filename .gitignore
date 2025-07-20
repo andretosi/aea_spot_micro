@@ -8,8 +8,6 @@ venv/
 __pycache__
 spotmicroai.urdf
 policy_training/logs
-policies
-states
 *.png
 *.txt
 dockerfile

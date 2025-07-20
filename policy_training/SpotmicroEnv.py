@@ -8,25 +8,43 @@ import inspect, os, pickle, warnings
 class Joint:
     def __init__(self, name: str, joint_id: int, joint_link_idx: int, joint_type: str, limits: tuple):
         self.name = name
+        self.leftright = name.split("_")[1]
+        self.frontback = name.split("_")[0]
         self.id = joint_id
         self.link_id = joint_link_idx
         if limits[0] >= limits[1]:
             raise ValueError(f"Joint {self.name} has invalid limits: {limits}")
         self.limits = limits
         self.mid = 0.5 * (self.limits[0] + self.limits[1])
-        self.range = 0.5 * (self.limits[1] - self.limits[0])
         self.type = joint_type # shoulder, leg, foot
         self.effort = 0
 
         if self.type == "shoulder":
             self.max_torque = 6.8 #hard limit for all would be 6.81, lowering to see if improves results
+            if self.leftright == "left":
+                self.homing_position = -0.05
+            else:
+                self.homing_position = 0.05
+            self.range = 0.4
+    
         elif self.type == "leg":
             self.max_torque = 6.8
+            if self.frontback == "front":
+                self.homing_position = -0.4
+            else:
+                self.homing_position = -0.4
+            self.range = 0.9
+
         elif self.type == "foot":
             self.max_torque = 6.8
+            if self.frontback == "front":
+                self.homing_position = 1.2
+            else:
+                self.homing_position = 0.93
+            self.range = 0.6
     
     def from_action_to_position(self, action: float) -> float:
-        return self.mid + self.range * action
+        return self.homing_position + self.range * action
 
 class SpotmicroEnv(gym.Env):
     def __init__(self, use_gui=False, reward_fn=None, init_custom_state=None, dest_save_file=None, src_save_file=None, writer=None):
@@ -36,7 +54,7 @@ class SpotmicroEnv(gym.Env):
         self._ACT_SPACE_SIZE = 12
         self._MAX_EPISODE_LEN = 3000
         self._TARGET_DIRECTION = np.array([1.0, 0.0, 0.0])
-        self.TARGET_HEIGHT = 0.235
+        self.TARGET_HEIGHT = 0.230
         self._SURVIVAL_REWARD = 15.0
         self._SIM_FREQUENCY = 240
         self._CONTROL_FREQUENCY = 60
@@ -274,8 +292,8 @@ class SpotmicroEnv(gym.Env):
         super().reset(seed=seed)
         self._episode_step_counter = 0
         self._action_counter = 0
-        self._agent_state["base_position"] = (0.0 , 0.0, 0.255) #Height set specifically through trial and error
-        self._agent_state["base_orientation"] = pybullet.getQuaternionFromEuler([0, 0, np.pi])
+        self._agent_state["base_position"] = (0.0 , 0.0, 0.235) #Height set specifically through trial and error
+        self._agent_state["base_orientation"] = pybullet.getQuaternionFromEuler([0, -0.07, np.pi])
         self._agent_state["linear_velocity"] = np.zeros(3)
         self._agent_state["angular_velocity"] = np.zeros(3)
         self._agent_state["ground_feet_contacts"] = set()
@@ -343,7 +361,7 @@ class SpotmicroEnv(gym.Env):
 
         # Setting homing position and friction
         for joint in self._motor_joints:
-            pybullet.resetJointState(self._robot_id, joint.id, joint.mid)
+            pybullet.resetJointState(self._robot_id, joint.id, joint.homing_position)
             if joint.type == "foot":
                 pybullet.changeDynamics(
                     self._robot_id,
