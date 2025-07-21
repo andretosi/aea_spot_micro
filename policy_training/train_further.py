@@ -23,7 +23,7 @@ env = SpotmicroEnv(
     use_gui=False,
     reward_fn=reward_function, 
     init_custom_state=init_custom_state, 
-    src_save_file="states/statestand1M-0.pkl",
+    src_save_file="states/statestand2M-2.pkl",
     dest_save_file="states/state2M-2.pkl"
     )
 check_env(env, warn=True) #optional
