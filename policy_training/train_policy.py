@@ -1,12 +1,12 @@
-from stable_baselines3 import PPO
 from SpotmicroEnv import SpotmicroEnv
+from stable_baselines3 import PPO
 from stable_baselines3.common.env_checker import check_env
+from standing_reward_function import reward_function, init_custom_state
 from stable_baselines3.common.callbacks import CheckpointCallback
-from walking_reward_function import reward_function, init_custom_state
-from torch.utils.tensorboard import SummaryWriter
 
-TOTAL_STEPS = 8_000_000
-run = "stand1M-2"
+TOTAL_STEPS = 1_000_000
+run = "walk_10M-0"
+
 
 def clipped_linear_schedule(initial_value, min_value=1e-5):
     def schedule(progress_remaining):
@@ -19,21 +19,21 @@ checkpoint_callback = CheckpointCallback(
     name_prefix=f"ppo_{run}"            # File name prefix
 )
 
-#writer = SummaryWriter(log_dir=f"./logs/reward_components/{run}")
-env = SpotmicroEnv(use_gui=False, reward_fn=reward_function, dest_save_file=f"states/state{run}.pkl", writer=None)
+env = SpotmicroEnv(
+    use_gui=False,
+    reward_fn=reward_function, 
+    init_custom_state=init_custom_state, 
+    src_save_file="states/statestand2M-2.pkl",
+    dest_save_file="states/state2M-2.pkl"
+    )
 check_env(env, warn=True) #optional
 
-model = PPO(
-    "MlpPolicy", 
-    env, 
-    verbose = 1, 
-    n_steps=2048,
-    batch_size=512,
-    learning_rate=clipped_linear_schedule(3e-4),
-    ent_coef=0.0035, #previously 0.0015
-    clip_range=0.15,
-    tensorboard_log="./logs"
-)
-model.learn(total_timesteps=TOTAL_STEPS, callback=checkpoint_callback)
-model.save(f"policies/ppo_{run}")
+model = PPO.load("policies/stand_base2M")
+model.set_env(env)
+model.tensorboard_log = "./logs"
+model.learn(
+    total_timesteps=TOTAL_STEPS,
+    reset_num_timesteps=False,
+    )
+model.save("policies/ppo_wal10M-0")
 env.close()
