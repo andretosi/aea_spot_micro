@@ -2,10 +2,10 @@ from stable_baselines3 import PPO
 from SpotmicroEnv import SpotmicroEnv
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.callbacks import CheckpointCallback
-from standing_reward_function import reward_function, init_custom_state
+from walking_reward_function import reward_function, init_custom_state
 from torch.utils.tensorboard import SummaryWriter
 
-TOTAL_STEPS = 1_000_000
+TOTAL_STEPS = 8_000_000
 run = "stand1M-2"
 
 def clipped_linear_schedule(initial_value, min_value=1e-5):

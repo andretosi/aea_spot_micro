@@ -4,22 +4,20 @@ from stable_baselines3 import PPO
 from SpotmicroEnv import SpotmicroEnv
 from standing_reward_function import reward_function, init_custom_state
 
-run = "stand1M-2_1000000_steps"
+run = "ppo_stand2M-0"
 env = SpotmicroEnv(
     use_gui=True, 
-    reward_fn=reward_function#, 
-    #init_custom_state=init_custom_state#, 
-    #src_save_file=f"states/state{run}.pkl"
+    reward_fn=reward_function,
+    init_custom_state=init_custom_state, 
+    src_save_file=f"states/statestand2M-2.pkl"
     )
 obs, _ = env.reset()
 
 # Load your trained model
-model = PPO.load(f"policies/stand1M-2_checkpoints/ppo_{run}")  # or path to your .zip
+model = PPO.load(f"policies/ppo_stand2M-2")  # or path to your .zip
 env._total_steps_counter = 1_000_000
 print(f"num steps: {env.num_steps}")
 
-for joint in env._motor_joints:
-    print(f"Joint: {joint.name}. Range: ({joint.mid-joint.range}/{joint.mid+joint.range})")
 # Run rollout
 for _ in range(3001):
     action, _states = model.predict(obs, deterministic=True)
