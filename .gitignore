@@ -5,13 +5,9 @@ spot_micro/install/
 spot_micro/.vscode/
 venv/
 .venv/
-ppo_spotmicroai.zip
 __pycache__
 spotmicroai.urdf
 policy_training/logs
-*.zip
-ppo_*
 *.png
-*.pkl
 *.txt
 dockerfile

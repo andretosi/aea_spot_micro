@@ -8,39 +8,58 @@ import inspect, os, pickle, warnings
 class Joint:
     def __init__(self, name: str, joint_id: int, joint_link_idx: int, joint_type: str, limits: tuple):
         self.name = name
+        self.leftright = name.split("_")[1]
+        self.frontback = name.split("_")[0]
         self.id = joint_id
         self.link_id = joint_link_idx
         if limits[0] >= limits[1]:
             raise ValueError(f"Joint {self.name} has invalid limits: {limits}")
         self.limits = limits
         self.mid = 0.5 * (self.limits[0] + self.limits[1])
-        self.range = 0.5 * (self.limits[1] - self.limits[0])
         self.type = joint_type # shoulder, leg, foot
         self.effort = 0
 
         if self.type == "shoulder":
-            self.max_torque = 6.3 #hard limit for all would be 6.81, lowering to see if improves results
+            self.max_torque = 6.8 #hard limit for all would be 6.81, lowering to see if improves results
+            if self.leftright == "left":
+                self.homing_position = -0.05
+            else:
+                self.homing_position = 0.05
+            self.range = 0.4
+    
         elif self.type == "leg":
-            self.max_torque = 6.3
+            self.max_torque = 6.8
+            if self.frontback == "front":
+                self.homing_position = -0.4
+            else:
+                self.homing_position = -0.4
+            self.range = 0.9
+
         elif self.type == "foot":
-            self.max_torque = 6.3
+            self.max_torque = 6.8
+            if self.frontback == "front":
+                self.homing_position = 1.2
+            else:
+                self.homing_position = 0.93
+            self.range = 0.6
     
     def from_action_to_position(self, action: float) -> float:
-        return self.mid + self.range * action
+        return self.homing_position + self.range * action
 
 class SpotmicroEnv(gym.Env):
-    def __init__(self, use_gui=False, reward_fn=None, init_custom_state=None, dest_save_file=None, src_save_file=None):
+    def __init__(self, use_gui=False, reward_fn=None, init_custom_state=None, dest_save_file=None, src_save_file=None, writer=None):
         super().__init__()
 
         self._OBS_SPACE_SIZE = 94
         self._ACT_SPACE_SIZE = 12
         self._MAX_EPISODE_LEN = 3000
         self._TARGET_DIRECTION = np.array([1.0, 0.0, 0.0])
-        self.TARGET_HEIGHT = 0.225
-        self._SURVIVAL_REWARD = 15.0
+        self.TARGET_HEIGHT = 0.230
+        self._SURVIVAL_REWARD = 3.0
         self._SIM_FREQUENCY = 240
         self._CONTROL_FREQUENCY = 60
         self._JOINT_HISTORY_MAX_LEN = 5
+        self.HOMING_PITCH = -0.07
 
         self._episode_step_counter = 0
         self._total_steps_counter = 0
@@ -55,6 +74,7 @@ class SpotmicroEnv(gym.Env):
         self.np_random = None
 
         self._episode_reward_info = None
+        self.writer = writer
 
         #Declaration of observation and action spaces
         self.observation_space = gym.spaces.Box(
@@ -82,8 +102,8 @@ class SpotmicroEnv(gym.Env):
 
         #If the agents is in this state, we terminate the simulation. Should quantize the fact that it has fallen, maybe a threshold?
         self._target_state = {
-            "min_height": 0.15, #meters?
-            "max_height": 0.30,
+            "min_height": 0.13, #meters?
+            "max_height": 0.40,
             "max_pitchroll": np.radians(55)
         }
 
@@ -197,6 +217,14 @@ class SpotmicroEnv(gym.Env):
         return self._previous_action
     
     @property
+    def agent_joint_state(self) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Returns a tuple of two arrays: the first contains the positions of each joint, the second their velocities
+        """
+        pos, vel = self._get_joint_states()
+        return (pos, vel)
+    
+    @property
     def target_direction(self) -> np.ndarray:
         """
         Get the current target direction for locomotion (unit vector).
@@ -244,7 +272,6 @@ class SpotmicroEnv(gym.Env):
         """
         self._custom_state[key] = value
 
-    
     def close(self):
         """
         Method exposed and used by SB3.
@@ -266,8 +293,8 @@ class SpotmicroEnv(gym.Env):
         super().reset(seed=seed)
         self._episode_step_counter = 0
         self._action_counter = 0
-        self._agent_state["base_position"] = (0.0 , 0.0, 0.255) #Height set specifically through trial and error
-        self._agent_state["base_orientation"] = pybullet.getQuaternionFromEuler([0, 0, np.pi])
+        self._agent_state["base_position"] = (0.0 , 0.0, 0.235) #Height set specifically through trial and error
+        self._agent_state["base_orientation"] = pybullet.getQuaternionFromEuler([0, self.HOMING_PITCH, np.pi])
         self._agent_state["linear_velocity"] = np.zeros(3)
         self._agent_state["angular_velocity"] = np.zeros(3)
         self._agent_state["ground_feet_contacts"] = set()
@@ -333,13 +360,14 @@ class SpotmicroEnv(gym.Env):
 
             self._motor_joints = tuple(motor_joints) # Made immutable to avoid problems
 
-        # Setting friction
+        # Setting homing position and friction
         for joint in self._motor_joints:
+            pybullet.resetJointState(self._robot_id, joint.id, joint.homing_position)
             if joint.type == "foot":
                 pybullet.changeDynamics(
                     self._robot_id,
                     linkIndex=joint.id,
-                    lateralFriction=1.5,
+                    lateralFriction=1.25,
                     physicsClientId=self.physics_client
                 )
 
@@ -392,6 +420,7 @@ class SpotmicroEnv(gym.Env):
         #Slow down the control loop
         if self._action_counter == int(self._SIM_FREQUENCY / self._CONTROL_FREQUENCY): # apply new action
             observation = self._step_simulation(action)
+            self._update_history()
             self._action_counter = 0
             reward, reward_info = self._calculate_reward(action)
             self._previous_action = action.copy()
@@ -400,14 +429,16 @@ class SpotmicroEnv(gym.Env):
             observation = self._step_simulation(self._previous_action)
             reward, reward_info = self._calculate_reward(self._previous_action)
 
-        terminated = self._is_target_state(self._agent_state) # checks wether the agent has fallen or not
+        terminated, term_penalty = self._is_target_state(self._agent_state) # checks wether the agent has fallen or not
         truncated = self._is_terminated()
         info = self._get_info()
 
         self._episode_reward_info.append(reward_info)
         if truncated:
             reward += self._SURVIVAL_REWARD
-        
+        if terminated:
+            reward += term_penalty
+
         self._total_steps_counter += 1
 
         return observation, reward, terminated, truncated, info
@@ -432,6 +463,16 @@ class SpotmicroEnv(gym.Env):
         plt.savefig("plot.png")
         plt.close()
     
+    def log_rewards(self, reward_dict: dict):
+        if self.writer is None:
+            return
+        
+        for key, value in reward_dict.items():
+            try:
+                self.writer.add_scalar(f"reward_components/{key}", value, self.num_steps)
+            except Exception as e:
+                print(f"[Logging Error] Could not log {key}: {e}")
+    
     #@TODO: should also tilt the plane, look up the code fromm the notebook
     def _step_simulation(self, action: np.ndarray) -> np.ndarray:
         """
@@ -454,7 +495,6 @@ class SpotmicroEnv(gym.Env):
         pybullet.stepSimulation()
 
         self._update_agent_state()
-        self._update_history()
 
         return self._get_observation()
     
@@ -565,9 +605,9 @@ class SpotmicroEnv(gym.Env):
         return  
 
     #@TODO: discuss the target state and rework this
-    def _is_target_state(self, agent_state) -> bool:
+    def _is_target_state(self, agent_state) -> tuple[bool, int]:
         """
-        Private method that returns wether the state of the agent is a target state (one in which to end the simulation) or not
+        Private method that returns wether the state of the agent is a target state (one in which to end the simulation) or not. It also returns a penalty to apply when the specific target condition is met
         """
 
         base_pos = agent_state["base_position"]
@@ -575,11 +615,11 @@ class SpotmicroEnv(gym.Env):
         height = base_pos[2]
 
         if height <= self._target_state["min_height"] or height > self._target_state["max_height"]:
-            return True
+            return (True, -30)
         elif abs(roll) > self._target_state["max_pitchroll"] or abs(pitch) > self._target_state["max_pitchroll"]:
-            return True
+            return (True, -5)
         else:
-            return False
+            return (False, 0)
     
     def _is_terminated(self) -> bool:
         """
