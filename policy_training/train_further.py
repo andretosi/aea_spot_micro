@@ -1,11 +1,11 @@
 from SpotmicroEnv import SpotmicroEnv
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_checker import check_env
-from standing_reward_function import reward_function, init_custom_state
+from walking_reward_function import reward_function, init_custom_state
 from stable_baselines3.common.callbacks import CheckpointCallback
 
-TOTAL_STEPS = 1_000_000
-run = "stand2M-2"
+TOTAL_STEPS = 8_000_000
+run = "stand10M-2"
 
 
 def clipped_linear_schedule(initial_value, min_value=1e-5):
@@ -28,12 +28,12 @@ env = SpotmicroEnv(
     )
 check_env(env, warn=True) #optional
 
-model = PPO.load("policies/ppo_stand1M-2")
+model = PPO.load("policies/ppo_stand2M-0")
 model.set_env(env)
 model.tensorboard_log = "./logs"
 model.learn(
     total_timesteps=TOTAL_STEPS,
     reset_num_timesteps=False,
     )
-model.save("policies/ppo_stand2M-2")
+model.save("policies/ppo_stand10M-2")
 env.close()
