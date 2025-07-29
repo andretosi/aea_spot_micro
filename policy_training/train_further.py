@@ -28,7 +28,7 @@ env = SpotmicroEnv(
     )
 check_env(env, warn=True) #optional
 
-model = PPO.load("policies/ppo_stand2M-0")
+model = PPO.load("policies/stand_base2M")
 model.set_env(env)
 model.tensorboard_log = "./logs"
 model.learn(
