@@ -19,15 +19,15 @@ class Joint:
         self.type = joint_type # shoulder, leg, foot
         self.effort = 0
 
-        if self.type == "shoulder":
-            self.max_torque = 6.8 #hard limit for all would be 6.81, lowering to see if improves results
+        if self.type == "shoulder": # Can range from -0.548 to 0.548, where negatives move outwards and positives move inwards
+            self.max_torque = 6.8 
             if self.leftright == "left":
                 self.homing_position = -0.05
             else:
                 self.homing_position = 0.05
             self.range = 0.4
     
-        elif self.type == "leg":
+        elif self.type == "leg": # Can range from -2.666 to 1.548, where -2.666 is the max extension and 1.548 is the max flexion
             self.max_torque = 6.8
             if self.frontback == "front":
                 self.homing_position = -0.4
@@ -35,10 +35,10 @@ class Joint:
                 self.homing_position = -0.4
             self.range = 0.9
 
-        elif self.type == "foot":
+        elif self.type == "foot": # Can range from -0.1 to 2.59, where -0.1 is the max extension and 2.59 is the max flexion
             self.max_torque = 6.8
             if self.frontback == "front":
-                self.homing_position = 1.2
+                self.homing_position = 1
             else:
                 self.homing_position = 0.93
             self.range = 0.6
