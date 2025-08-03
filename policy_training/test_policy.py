@@ -13,7 +13,7 @@ env = SpotmicroEnv(
 obs, _ = env.reset()
 
 # Load your trained model
-model = PPO.load(f"policies/ppo_stand2M-1")  # or path to your .zip
+model = PPO.load(f"policies/ppo_stand2M-2")  # or path to your .zip
 print(f"num steps: {env.num_steps}")
 
 # Run rollout

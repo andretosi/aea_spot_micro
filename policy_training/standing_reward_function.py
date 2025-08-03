@@ -44,7 +44,7 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
 
     # == EFFORT ==
     effort = sum(abs(joint.effort) / joint.max_torque for joint in env.motor_joints) / len(env.motor_joints)
-    effort_penalty = fade_in(env.num_steps) * effort * 0.5
+    
     
 
     # == Joint velocity ==
@@ -61,7 +61,7 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
         "uprightness": uprightness,
         "height": 1.5 * height_reward,
         "contact_bonus": 1.5 * contact_bonus,
-        "effort_penalty": -3 * effort_penalty,
+        "effort_penalty": -5 * fade_in(env.num_steps, scale=1.5) * effort,
         "stand_bonus": 1.0 if uprightness > 0.9 and height_reward > 0.9 and num_feet_on_ground >= 3 else 0.0,
         "velocity_penalty": 2 * velocity_penalty,
         "smoothness_penalty": -1 * smoothness_penalty,
