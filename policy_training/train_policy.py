@@ -5,7 +5,7 @@ from standing_reward_function import reward_function, init_custom_state
 from stable_baselines3.common.callbacks import CheckpointCallback
 
 TOTAL_STEPS = 2_000_000
-run = "stand2M-1"
+run = "stand2M-2"
 
 
 def clipped_linear_schedule(initial_value, min_value=1e-5):
@@ -27,12 +27,20 @@ env = SpotmicroEnv(
     )
 check_env(env, warn=True) #optional
 
-model = PPO.load("policies/stand_base2M")
-model.set_env(env)
-model.tensorboard_log = "./logs"
+model = PPO(
+    "MlpPolicy", 
+    env, 
+    verbose = 1, 
+    learning_rate=clipped_linear_schedule(3e-4),
+    ent_coef=0.002, #previously 0.0015
+    clip_range=0.1,
+    tensorboard_log="./logs",
+    )
+
 model.learn(
     total_timesteps=TOTAL_STEPS,
     reset_num_timesteps=False,
+    callback=checkpoint_callback
     )
 model.save(f"policies/ppo_{run}")
 env.close()

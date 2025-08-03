@@ -27,21 +27,21 @@ class Joint:
                 self.homing_position = 0.05
             self.range = 0.4
     
-        elif self.type == "leg": # Can range from -2.666 to 1.548, where -2.666 is the max extension and 1.548 is the max flexion
+        elif self.type == "leg": # Can range from -2.666 to 1.548, where -2.666 is towards the back and 1.548 is tpowards the front
             self.max_torque = 5
             if self.frontback == "front":
                 self.homing_position = -0.4
             else:
-                self.homing_position = -0.4
+                self.homing_position = -0.5
             self.range = 0.9
 
         elif self.type == "foot": # Can range from -0.1 to 2.59, where -0.1 is the max extension and 2.59 is the max flexion
             self.max_torque = 5
             if self.frontback == "front":
-                self.homing_position = 1
+                self.homing_position = 1.1
             else:
-                self.homing_position = 0.93
-            self.range = 0.6
+                self.homing_position = 1
+            self.range = 0.35
     
     def from_action_to_position(self, action: float) -> float:
         return self.homing_position + self.range * action
