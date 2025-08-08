@@ -20,7 +20,7 @@ class Joint:
         self.effort = 0
 
         if self.type == "shoulder": # Can range from -0.548 to 0.548, where negatives move outwards and positives move inwards
-            self.max_torque = 5 # Max value would be 6.81 
+            self.max_torque = 6 # Max value would be 6.81 
             if self.leftright == "left":
                 self.homing_position = -0.05
             else:
@@ -28,19 +28,19 @@ class Joint:
             self.range = 0.4
     
         elif self.type == "leg": # Can range from -2.666 to 1.548, where negative is towards the back and positive is towards the front
-            self.max_torque = 5
+            self.max_torque = 6
             if self.frontback == "front":
-                self.homing_position = -0.35
+                self.homing_position = -0.37
             else:
-                self.homing_position = -0.45
+                self.homing_position = -0.47
             self.range = 0.9
 
         elif self.type == "foot": # Can range from -0.1 to 2.59, where -0.1 is the max extension and 2.59 is the max flexion
-            self.max_torque = 5
+            self.max_torque = 6
             if self.frontback == "front":
-                self.homing_position = 1.1
+                self.homing_position = 1.15
             else:
-                self.homing_position = 0.95
+                self.homing_position = 1.08
             self.range = 0.35
     
     def from_action_to_position(self, action: float) -> float:
@@ -54,7 +54,7 @@ class SpotmicroEnv(gym.Env):
         self._ACT_SPACE_SIZE = 12
         self._MAX_EPISODE_LEN = 3000
         self._TARGET_DIRECTION = np.array([1.0, 0.0, 0.0])
-        self.TARGET_HEIGHT = 0.230
+        self.TARGET_HEIGHT = 0.235
         self._SURVIVAL_REWARD = 3.0
         self._SIM_FREQUENCY = 240
         self._CONTROL_FREQUENCY = 60
@@ -293,7 +293,7 @@ class SpotmicroEnv(gym.Env):
         super().reset(seed=seed)
         self._episode_step_counter = 0
         self._action_counter = 0
-        self._agent_state["base_position"] = (0.0 , 0.0, 0.235) #Height set specifically through trial and error
+        self._agent_state["base_position"] = (0.0 , 0.0, 0.230) #Height set specifically through trial and error
         self._agent_state["base_orientation"] = pybullet.getQuaternionFromEuler([0, self.HOMING_PITCH, np.pi])
         self._agent_state["linear_velocity"] = np.zeros(3)
         self._agent_state["angular_velocity"] = np.zeros(3)
