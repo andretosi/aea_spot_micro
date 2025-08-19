@@ -5,6 +5,7 @@ from collections import deque
 import matplotlib.pyplot as plt
 import inspect, os, pickle, warnings
 
+
 class Joint:
     def __init__(self, name: str, joint_id: int, joint_link_idx: int, joint_type: str, limits: tuple):
         self.name = name
@@ -18,33 +19,46 @@ class Joint:
         self.mid = 0.5 * (self.limits[0] + self.limits[1])
         self.type = joint_type # shoulder, leg, foot
         self.effort = 0
+        self.max_torque = 6
 
-        if self.type == "shoulder": # Can range from -0.548 to 0.548, where negatives move outwards and positives move inwards
-            self.max_torque = 6 # Max value would be 6.81 
-            if self.leftright == "left":
-                self.homing_position = -0.05
-            else:
-                self.homing_position = 0.05
-            self.range = 0.4
+        if self.type == "shoulder":
+            self.homing_position = -0.05 if self.leftright == "left" else 0.05
+            self.gain =  1.6
+            self.deadzone = 0.05
     
-        elif self.type == "leg": # Can range from -2.666 to 1.548, where negative is towards the back and positive is towards the front
-            self.max_torque = 6
-            if self.frontback == "front":
-                self.homing_position = -0.37
-            else:
-                self.homing_position = -0.47
-            self.range = 0.9
+        elif self.type == "leg":
+            self.homing_position = -0.37 if self.frontback == "front" else -0.47
+            self.gain = 1.4
+            self.deadzone = 0.065
 
-        elif self.type == "foot": # Can range from -0.1 to 2.59, where -0.1 is the max extension and 2.59 is the max flexion
-            self.max_torque = 6
-            if self.frontback == "front":
-                self.homing_position = 1.15
-            else:
-                self.homing_position = 1.08
-            self.range = 0.35
-    
+        elif self.type == "foot":
+            self.homing_position = 1.15 if self.frontback == "front" else 1.08
+            self.gain = 1.2
+            self.deadzone = 0.08
+
     def from_action_to_position(self, action: float) -> float:
-        return self.homing_position + self.range * action
+        """
+        Map policy action in [-1,1] to full joint range with:
+        - deadzone around 0
+        - smooth saturation near edges (tanh squash).
+        """
+        action = np.clip(action, -1.0, 1.0)
+
+        # --- Deadzone ---
+        if abs(action) < self.deadzone:
+            action = 0.0
+        else:
+            # Rescale so that after deadzone we still span full range
+            action = np.sign(action) * (abs(action) - self.deadzone) / (1 - self.deadzone)
+
+        # --- Smooth squash (tanh for saturation) ---
+        squashed = np.tanh(self.gain * action)  # stays in [-1,1]
+
+        # --- Map to full physical range ---
+        low, high = self.limits
+        target = self.mid + 0.5 * (high - low) * squashed
+
+        return float(np.clip(target, low, high))
 
 class SpotmicroEnv(gym.Env):
     def __init__(self, use_gui=False, reward_fn=None, init_custom_state=None, dest_save_file=None, src_save_file=None, writer=None):
