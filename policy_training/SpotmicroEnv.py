@@ -24,16 +24,16 @@ class Joint:
         if self.type == "shoulder":
             self.homing_position = -0.05 if self.leftright == "left" else 0.05
             self.gain =  0.9
-            self.deadzone = 0.05
+            self.deadzone = 0.06
     
         elif self.type == "leg":
             self.homing_position = -0.37 if self.frontback == "front" else -0.47
-            self.gain = 0.8
-            self.deadzone = 0.065
+            self.gain = 0.85
+            self.deadzone = 0.07
 
         elif self.type == "foot":
             self.homing_position = 1.15 if self.frontback == "front" else 1.08
-            self.gain = 0.6
+            self.gain = 0.75
             self.deadzone = 0.08
 
     def from_action_to_position(self, action: float) -> float:
@@ -68,7 +68,7 @@ class SpotmicroEnv(gym.Env):
         self._ACT_SPACE_SIZE = 12
         self._MAX_EPISODE_LEN = 3000
         self._TARGET_DIRECTION = np.array([1.0, 0.0, 0.0])
-        self.TARGET_HEIGHT = 0.235
+        self.TARGET_HEIGHT = 0.220
         self._SURVIVAL_REWARD = 3.0
         self._SIM_FREQUENCY = 240
         self._CONTROL_FREQUENCY = 60
