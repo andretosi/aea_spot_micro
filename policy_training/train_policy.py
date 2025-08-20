@@ -4,8 +4,8 @@ from stable_baselines3.common.env_checker import check_env
 from standing_reward_function import reward_function, init_custom_state
 from stable_baselines3.common.callbacks import CheckpointCallback
 
-TOTAL_STEPS = 4_000_000
-run = "stand4M-1"
+TOTAL_STEPS = 3_000_000
+run = "stand3M-0"
 
 
 def clipped_linear_schedule(initial_value, min_value=1e-5):
