@@ -5,7 +5,7 @@ from standing_reward_function import reward_function, init_custom_state
 from stable_baselines3.common.callbacks import CheckpointCallback
 
 TOTAL_STEPS = 3_000_000
-run = "stand3M-0"
+run = "stand3M-1"
 
 
 def clipped_linear_schedule(initial_value, min_value=1e-5):
@@ -32,7 +32,7 @@ model = PPO(
     env, 
     verbose = 1, 
     learning_rate=clipped_linear_schedule(3e-4),
-    ent_coef=0.002, #previously 0.0015
+    ent_coef=0.001, #previously 0.0015
     clip_range=0.1,
     tensorboard_log="./logs",
     )
