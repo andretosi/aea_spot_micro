@@ -4,8 +4,8 @@ from stable_baselines3.common.env_checker import check_env
 from standing_reward_function import reward_function, init_custom_state
 from stable_baselines3.common.callbacks import CheckpointCallback
 
-TOTAL_STEPS = 3_000_000
-run = "stand3M-2"
+TOTAL_STEPS = 10_000_000
+run = "stand10M-0"
 
 
 def clipped_linear_schedule(initial_value, min_value=1e-5):
@@ -14,7 +14,7 @@ def clipped_linear_schedule(initial_value, min_value=1e-5):
     return schedule
 
 checkpoint_callback = CheckpointCallback(
-    save_freq=TOTAL_STEPS / 5,                
+    save_freq=TOTAL_STEPS / 20,                
     save_path=f"./policies/{run}_checkpoints",  # Folder to save in
     name_prefix=f"ppo_{run}"            # File name prefix
 )
