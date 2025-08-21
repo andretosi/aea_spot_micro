@@ -50,7 +50,7 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     # == Joint velocity ==
     _, joint_velocities = env.agent_joint_state
     avg_joint_vel = np.mean(np.abs(joint_velocities))
-    joint_velocity_penalty = np.tanh(avg_joint_vel) # tra 0 e 1
+    joint_velocity_penalty = np.abs(np.tanh(avg_joint_vel)) # tra 0 e 1
 
     # == Vertical velocity ==
     vertical_velocity_penalty = env.agent_linear_velocity[2] ** 2
@@ -62,22 +62,22 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     # == NEW ADDITIONS TO STABILIZE ==
     action_magnitude = np.mean(np.abs(action))
     action_sparsity_reward =  np.exp(-4 * action_magnitude) # Reward for very small actions.
-    joint_deviation = np.mean(positions - homing_positions)
+    joint_deviation = np.mean(np.abs(positions - homing_positions))
 
 
     # === Final Reward ===
     reward_dict = {
         "uprightness": 1.5 * uprightness,
         "height": 2 * height_reward,
-        "contact_bonus": 1.5 * contact_bonus,
-        "stand_bonus": 1.0 if uprightness > 0.9 and height_reward > 0.9 and num_feet_on_ground >= 3 else 0.0,
+        #"contact_bonus": 1.5 * contact_bonus,
+        #"stand_bonus": 1.0 if uprightness > 0.9 and height_reward > 0.9 and num_feet_on_ground >= 3 else 0.0,
         "effort_penalty": -1 * fade_in(env.num_steps, scale=2) * effort,
-        "joint_velocity_penalty": -1.5 * joint_velocity_penalty,
-        "vertical_velocity_penalty": -1 * smoothness_penalty,
-        "smoothness_penalty": -1.5 * smoothness_penalty,
+        "joint_velocity_penalty": -2 * joint_velocity_penalty,
+        "vertical_velocity_penalty": -1.5 * vertical_velocity_penalty,
+        "smoothness_penalty": -0.5 * smoothness_penalty,
+        "joint_deviation_penalty": -1.5 * joint_deviation,
         "foot_stability_bonus": 2 * foot_stability_bonus,
-        "action_sparsity_reward": 0.5 * action_sparsity_reward,
-        "joint_deviation_penalty": -1 * joint_deviation
+        "action_sparsity_reward": 1 * action_sparsity_reward,
     }
     total_reward = sum(reward_dict.values())
 
