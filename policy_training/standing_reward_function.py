@@ -18,6 +18,8 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     roll, pitch, _ = pybullet.getEulerFromQuaternion(env.agent_base_orientation)
     base_height = env.agent_base_position[2]
     contacts = env.agent_ground_feet_contacts
+    positions, velocities = env.agent_joint_state
+    homing_positions = np.array([joint.homing_position for joint in env.motor_joints])
 
     # === Uprightness Reward ===
     max_angle = np.radians(45)  # anything over this is considered tipping
@@ -60,7 +62,7 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     # == NEW ADDITIONS TO STABILIZE ==
     action_magnitude = np.mean(np.abs(action))
     action_sparsity_reward =  np.exp(-4 * action_magnitude) # Reward for very small actions.
-    joint_deviation = np.mean([abs(joint.current_position - joint.homing_position) for joint in env.motor_joints])
+    joint_deviation = np.mean(positions - homing_positions)
 
 
     # === Final Reward ===

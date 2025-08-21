@@ -20,6 +20,7 @@ class Joint:
         self.type = joint_type # shoulder, leg, foot
         self.effort = 0
         self.max_torque = 6
+        self.current_position = 0
 
         if self.type == "shoulder":
             self.homing_position = -0.05 if self.leftright == "left" else 0.05
@@ -494,7 +495,6 @@ class SpotmicroEnv(gym.Env):
         It should sinchronize the state of the agent in the simulation with the state recorded here!
         Accepts an action and returns an observation
         """
-        #@TODO: add max torque
         # Execute the action in pybullet
         for i, joint in enumerate(self._motor_joints):
             pybullet.setJointMotorControl2(
@@ -615,6 +615,7 @@ class SpotmicroEnv(gym.Env):
         for joint in self._motor_joints:
             joint_state = pybullet.getJointState(self._robot_id, joint.id)
             joint.effort = joint_state[3]
+            joint.position = joint_state[0]
 
         return  
 
