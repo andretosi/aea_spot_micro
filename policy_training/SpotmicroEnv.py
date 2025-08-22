@@ -20,44 +20,57 @@ class Joint:
         self.type = joint_type # shoulder, leg, foot
         self.effort = 0
         self.max_torque = 6
-        self.current_position = 0
 
-        if self.type == "shoulder":
+        if self.type == "shoulder": # Range: -0.548, 0.548
             self.homing_position = -0.05 if self.leftright == "left" else 0.05
-            self.gain =  0.9
-            self.deadzone = 0.06
-    
-        elif self.type == "leg":
-            self.homing_position = -0.37 if self.frontback == "front" else -0.47
-            self.gain = 0.85
+            self.gain =  1.5
             self.deadzone = 0.07
+            self.power = 1.5
+    
+        elif self.type == "leg": # Range: -2.66, 1.5488
+            self.homing_position = -0.37 if self.frontback == "front" else -0.47
+            self.gain = 1.3
+            self.deadzone = 0.075
+            self.power = 1.8
 
-        elif self.type == "foot":
+        elif self.type == "foot": # Ragnge: -0.1, 2.59
             self.homing_position = 1.15 if self.frontback == "front" else 1.08
-            self.gain = 0.75
-            self.deadzone = 0.08
+            self.gain = 1.2
+            self.deadzone = 0.075
+            self.power = 1.6
 
     def from_action_to_position(self, action: float) -> float:
         """
-        Map policy action in [-1,1] to full joint range with:
-        - deadzone around 0
-        - smooth saturation near edges (tanh squash).
+        Map policy action a∈[-1,1] → joint position within [low, high],
+        centered at homing, with:
+        - deadzone around 0 to kill micro-jitter,
+        - |a|^power to compress small actions (slope → 0 at 0 for power>1),
+        - tanh(g*·)/tanh(g) to softly saturate near limits,
+        - asymmetric reach when homing ≠ mid.
         """
-        action = np.clip(action, -1.0, 1.0)
-
-        # --- Deadzone ---
-        if abs(action) < self.deadzone:
-            action = 0.0
-        else:
-            # Rescale so that after deadzone we still span full range
-            action = np.sign(action) * (abs(action) - self.deadzone) / (1 - self.deadzone)
-
-        # --- Smooth squash (tanh for saturation) ---
-        squashed = np.tanh(self.gain * action)  # stays in [-1,1]
-
-        # --- Map to full physical range ---
+        a = float(np.clip(action, -1.0, 1.0))
         low, high = self.limits
-        target = self.mid + 0.5 * (high - low) * squashed
+        h = self.homing_position
+
+        # --- Deadzone (and rescale outside so ±1 still hits limits) ---
+        if abs(a) < self.deadzone:
+            return float(np.clip(h, low, high))
+        a_eff = np.sign(a) * (abs(a) - self.deadzone) / (1.0 - self.deadzone)  # still in [-1,1]
+
+        # --- Asymmetric distances from homing to limits ---
+        r_plus  = max(1e-6, high - h)  # positive direction reach
+        r_minus = max(1e-6, h - low)   # negative direction reach
+
+        # --- Compress small actions, then softly saturate ---
+        # power > 1 => derivative at 0 is 0 (very low sensitivity near home)
+        mag = abs(a_eff) ** self.power                      # in [0,1]
+        squash = np.tanh(self.gain * mag) / np.tanh(self.gain)   # in [0,1], saturates smoothly
+
+        # --- Apply towards the correct side with asymmetric reach ---
+        if a_eff >= 0.0:
+            target = h + r_plus * squash
+        else:
+            target = h - r_minus * squash
 
         return float(np.clip(target, low, high))
 
@@ -615,7 +628,6 @@ class SpotmicroEnv(gym.Env):
         for joint in self._motor_joints:
             joint_state = pybullet.getJointState(self._robot_id, joint.id)
             joint.effort = joint_state[3]
-            joint.position = joint_state[0]
 
         return  
 
