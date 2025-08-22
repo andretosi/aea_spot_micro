@@ -69,8 +69,8 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     reward_dict = {
         "uprightness": 1.5 * uprightness,
         "height": 2 * height_reward,
-        "contact_bonus": 1.5 * contact_bonus,
-        "stand_bonus": 1.0 if uprightness > 0.9 and height_reward > 0.9 and num_feet_on_ground >= 3 else 0.0,
+        #"contact_bonus": 1.5 * contact_bonus,
+        #"stand_bonus": 1.0 if uprightness > 0.9 and height_reward > 0.9 and num_feet_on_ground >= 3 else 0.0,
         "effort_penalty": -1 * fade_in(env.num_steps, scale=2) * effort,
         "joint_velocity_penalty": -2 * joint_velocity_penalty,
         "vertical_velocity_penalty": -1.5 * vertical_velocity_penalty,
