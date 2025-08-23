@@ -29,7 +29,7 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     # === Height Reward ===
     TARGET_HEIGHT = env.TARGET_HEIGHT  # Should be your standing height (~0.2–0.25m usually)
     height_error = abs(base_height - TARGET_HEIGHT)
-    height_reward = np.exp(-10 * height_error)  # 1 if perfect, drops off quickly
+    height_reward = np.exp(-5 * height_error)  # 1 if perfect, drops off quickly
 
     # === Foot Contact Bonus ===
     num_feet_on_ground = len(contacts)
@@ -67,16 +67,16 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
 
     # === Final Reward ===
     reward_dict = {
-        "uprightness": 1.5 * uprightness,
-        "height": 2 * height_reward,
-        "contact_bonus": 1.5 * contact_bonus,
-        "stand_bonus": 1.0 if uprightness > 0.9 and height_reward > 0.9 and num_feet_on_ground >= 3 else 0.0,
-        "effort_penalty": -1 * fade_in(env.num_steps, scale=2) * effort,
-        "joint_velocity_penalty": -2 * joint_velocity_penalty,
-        "vertical_velocity_penalty": -1.5 * vertical_velocity_penalty,
-        "smoothness_penalty": -0.5 * smoothness_penalty,
-        "joint_deviation_penalty": -1.5 * joint_deviation,
-        "foot_stability_bonus": 2 * foot_stability_bonus,
+        "uprightness": 2 * uprightness,
+        "height": 3 * height_reward,
+        #"contact_bonus": 1.5 * contact_bonus,
+        #"stand_bonus": 1.0 if uprightness > 0.9 and height_reward > 0.9 and num_feet_on_ground >= 3 else 0.0,
+        #"effort_penalty": -2 * fade_in(env.num_steps, scale=2) * effort,
+        #"joint_velocity_penalty": -3 * joint_velocity_penalty,
+        "vertical_velocity_penalty": -2 * vertical_velocity_penalty,
+        #"smoothness_penalty": -0.5 * smoothness_penalty,
+        "joint_deviation_penalty": -4 * joint_deviation,
+        #"foot_stability_bonus": 2 * foot_stability_bonus,
         "action_sparsity_reward": 1 * action_sparsity_reward,
     }
     total_reward = sum(reward_dict.values())

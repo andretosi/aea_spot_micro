@@ -23,21 +23,21 @@ class Joint:
 
         if self.type == "shoulder": # Range: -0.548, 0.548
             self.homing_position = -0.05 if self.leftright == "left" else 0.05
-            self.gain =  1.5
+            self.gain =  0.9
             self.deadzone = 0.07
-            self.power = 1.5
+            self.power = 2
     
         elif self.type == "leg": # Range: -2.66, 1.5488
             self.homing_position = -0.37 if self.frontback == "front" else -0.47
-            self.gain = 1.3
+            self.gain = 0.8
             self.deadzone = 0.075
-            self.power = 1.8
+            self.power = 2.2
 
         elif self.type == "foot": # Ragnge: -0.1, 2.59
             self.homing_position = 1.15 if self.frontback == "front" else 1.08
-            self.gain = 1.2
+            self.gain = 0.65
             self.deadzone = 0.075
-            self.power = 1.6
+            self.power = 2.3
 
     def from_action_to_position(self, action: float) -> float:
         """
