@@ -81,6 +81,8 @@ class SpotmicroEnv(gym.Env):
         self._OBS_SPACE_SIZE = 94
         self._ACT_SPACE_SIZE = 12
         self._MAX_EPISODE_LEN = 3000
+        self._SIM_FREQUENCY = 240
+        self._CONTROL_FREQUENCY = 60
         self._TARGET_DIRECTION = np.array([1.0, 0.0, 0.0])
         self.TARGET_HEIGHT = 0.220
         self._SURVIVAL_REWARD = 3.0
@@ -345,6 +347,7 @@ class SpotmicroEnv(gym.Env):
         pybullet.resetSimulation(physicsClientId=self.physics_client)
         pybullet.setGravity(0, 0, -9.81, physicsClientId=self.physics_client)
         pybullet.setTimeStep(1/self._SIM_FREQUENCY, physicsClientId=self.physics_client)
+        pybullet.setTimeStep(1/self._SIM_FREQUENCY, physicsClientId=self.physics_client)
 
         #load robot URDF here
         pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
@@ -518,7 +521,8 @@ class SpotmicroEnv(gym.Env):
                 force = joint.max_torque
             )
         
-        self._episode_step_counter += 1 #updates the step counter (used to check against timeouts)
+        self._step_counter += 1 #updates the step counter (used to check against timeouts)
+        self._tilt_plane()
         pybullet.stepSimulation()
 
         self._update_agent_state()
