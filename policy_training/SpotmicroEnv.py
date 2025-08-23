@@ -5,6 +5,7 @@ from collections import deque
 import matplotlib.pyplot as plt
 import inspect, os, pickle, warnings
 
+
 class Joint:
     def __init__(self, name: str, joint_id: int, joint_link_idx: int, joint_type: str, limits: tuple):
         self.name = name
@@ -18,33 +19,60 @@ class Joint:
         self.mid = 0.5 * (self.limits[0] + self.limits[1])
         self.type = joint_type # shoulder, leg, foot
         self.effort = 0
+        self.max_torque = 6
 
-        if self.type == "shoulder":
-            self.max_torque = 6.8 #hard limit for all would be 6.81, lowering to see if improves results
-            if self.leftright == "left":
-                self.homing_position = -0.05
-            else:
-                self.homing_position = 0.05
-            self.range = 0.4
+        if self.type == "shoulder": # Range: -0.548, 0.548
+            self.homing_position = -0.05 if self.leftright == "left" else 0.05
+            self.gain =  0.9
+            self.deadzone = 0.07
+            self.power = 2
     
-        elif self.type == "leg":
-            self.max_torque = 6.8
-            if self.frontback == "front":
-                self.homing_position = -0.4
-            else:
-                self.homing_position = -0.4
-            self.range = 0.9
+        elif self.type == "leg": # Range: -2.66, 1.5488
+            self.homing_position = -0.37 if self.frontback == "front" else -0.47
+            self.gain = 0.8
+            self.deadzone = 0.075
+            self.power = 2.2
 
-        elif self.type == "foot":
-            self.max_torque = 6.8
-            if self.frontback == "front":
-                self.homing_position = 1.2
-            else:
-                self.homing_position = 0.93
-            self.range = 0.6
-    
+        elif self.type == "foot": # Ragnge: -0.1, 2.59
+            self.homing_position = 1.15 if self.frontback == "front" else 1.08
+            self.gain = 0.65
+            self.deadzone = 0.075
+            self.power = 2.3
+
     def from_action_to_position(self, action: float) -> float:
-        return self.homing_position + self.range * action
+        """
+        Map policy action a∈[-1,1] → joint position within [low, high],
+        centered at homing, with:
+        - deadzone around 0 to kill micro-jitter,
+        - |a|^power to compress small actions (slope → 0 at 0 for power>1),
+        - tanh(g*·)/tanh(g) to softly saturate near limits,
+        - asymmetric reach when homing ≠ mid.
+        """
+        a = float(np.clip(action, -1.0, 1.0))
+        low, high = self.limits
+        h = self.homing_position
+
+        # --- Deadzone (and rescale outside so ±1 still hits limits) ---
+        if abs(a) < self.deadzone:
+            return float(np.clip(h, low, high))
+        a_eff = np.sign(a) * (abs(a) - self.deadzone) / (1.0 - self.deadzone)  # still in [-1,1]
+
+        # --- Asymmetric distances from homing to limits ---
+        r_plus  = max(1e-6, high - h)  # positive direction reach
+        r_minus = max(1e-6, h - low)   # negative direction reach
+
+        # --- Compress small actions, then softly saturate ---
+        # power > 1 => derivative at 0 is 0 (very low sensitivity near home)
+        mag = abs(a_eff) ** self.power                      # in [0,1]
+        squash = np.tanh(self.gain * mag) / np.tanh(self.gain)   # in [0,1], saturates smoothly
+
+        # --- Apply towards the correct side with asymmetric reach ---
+        if a_eff >= 0.0:
+            target = h + r_plus * squash
+        else:
+            target = h - r_minus * squash
+
+        return float(np.clip(target, low, high))
 
 class SpotmicroEnv(gym.Env):
     def __init__(self, use_gui=False, reward_fn=None, init_custom_state=None, dest_save_file=None, src_save_file=None, writer=None):
@@ -54,7 +82,7 @@ class SpotmicroEnv(gym.Env):
         self._ACT_SPACE_SIZE = 12
         self._MAX_EPISODE_LEN = 3000
         self._TARGET_DIRECTION = np.array([1.0, 0.0, 0.0])
-        self.TARGET_HEIGHT = 0.230
+        self.TARGET_HEIGHT = 0.220
         self._SURVIVAL_REWARD = 3.0
         self._SIM_FREQUENCY = 240
         self._CONTROL_FREQUENCY = 60
@@ -293,7 +321,7 @@ class SpotmicroEnv(gym.Env):
         super().reset(seed=seed)
         self._episode_step_counter = 0
         self._action_counter = 0
-        self._agent_state["base_position"] = (0.0 , 0.0, 0.235) #Height set specifically through trial and error
+        self._agent_state["base_position"] = (0.0 , 0.0, 0.230) #Height set specifically through trial and error
         self._agent_state["base_orientation"] = pybullet.getQuaternionFromEuler([0, self.HOMING_PITCH, np.pi])
         self._agent_state["linear_velocity"] = np.zeros(3)
         self._agent_state["angular_velocity"] = np.zeros(3)
@@ -480,7 +508,6 @@ class SpotmicroEnv(gym.Env):
         It should sinchronize the state of the agent in the simulation with the state recorded here!
         Accepts an action and returns an observation
         """
-        #@TODO: add max torque
         # Execute the action in pybullet
         for i, joint in enumerate(self._motor_joints):
             pybullet.setJointMotorControl2(
@@ -514,9 +541,8 @@ class SpotmicroEnv(gym.Env):
 
     def _update_history(self):
         hist = []
-        pos, vel = self._get_joint_states()
-        hist.extend(pos)
-        hist.extend(vel)
+        hist.extend(self._joint_positions_norm())
+        hist.extend(self._joint_velocities_norm())
 
         self._joint_history.appendleft(hist)
     
@@ -560,6 +586,19 @@ class SpotmicroEnv(gym.Env):
         
         return gravity_base   
     
+    def _joint_positions_norm(self):
+        pos, _ = self._get_joint_states()
+        pos_norm = []
+        for i, joint in enumerate(self.motor_joints):
+            pos_norm.append(((2 * (pos[i] - joint.limits[0])) / (joint.limits[1] - joint.limits[0])) - 1) # Normalize ang position with respect to max range of motion
+        return pos_norm
+    
+    def _joint_velocities_norm(self):
+        _, vels = self._get_joint_states()
+        vel_norm = [np.tanh(vel / 10) for vel in vels] # Normalize velocity with resect to a hypotetical max velocity (10 rad/s)
+        return vel_norm
+
+    
     def _get_observation(self) -> np.ndarray:
         """
         - 0-2: gravity vector
@@ -573,14 +612,12 @@ class SpotmicroEnv(gym.Env):
         """
 
         obs = []
-        positions, velocities = self._get_joint_states()
-
         obs.extend(self._get_gravity_vector())
-        obs.append((self._agent_state["base_position"])[2])
-        obs.extend(self._agent_state["linear_velocity"])
-        obs.extend(self._agent_state["angular_velocity"])
-        obs.extend(positions)
-        obs.extend(velocities)
+        obs.append((((self._agent_state["base_position"])[2]) - self.TARGET_HEIGHT) / 0.235) # Normalized w respect a hypotetical max height of 235 cm
+        obs.extend(np.array(self._agent_state["linear_velocity"]) / 2.0) # Normalized w respect to a hypotetical max velocity (2 m/s)
+        obs.extend(np.array(self._agent_state["angular_velocity"]) / 10) # Normalized w respect to a hypotetical max ang velocity (10 rad/s)
+        obs.extend(self._joint_positions_norm()) 
+        obs.extend(self._joint_velocities_norm())
         obs.extend(self._joint_history[1])
         obs.extend(self._joint_history[4])
         obs.extend(self._previous_action)
