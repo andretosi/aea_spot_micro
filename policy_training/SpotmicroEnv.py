@@ -521,10 +521,9 @@ class SpotmicroEnv(gym.Env):
                 force = joint.max_torque
             )
         
-        self._step_counter += 1 #updates the step counter (used to check against timeouts)
+        self._episode_step_counter += 1 #updates the step counter (used to check against timeouts)
         self._tilt_plane()
         pybullet.stepSimulation()
-
         self._update_agent_state()
 
         return self._get_observation()
@@ -689,8 +688,8 @@ class SpotmicroEnv(gym.Env):
 
         self._tilt_step += 1
 
-        freq = 0.01
-        max_angle = np.radians(6)
+        freq = 0.035
+        max_angle = np.radians(10)
 
         tilt_x = max_angle * np.sin(freq * self._tilt_step + self._tilt_phase)
         tilt_y = max_angle * np.cos(freq * self._tilt_step + self._tilt_phase)

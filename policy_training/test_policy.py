@@ -4,7 +4,7 @@ from stable_baselines3 import PPO
 from SpotmicroEnv import SpotmicroEnv
 from standing_reward_function import reward_function, init_custom_state
 
-run = "stand5M-1"
+run = "stand"
 
 env = SpotmicroEnv(
     use_gui=True, 
@@ -20,7 +20,7 @@ model = PPO.load(f"policies/{run}_checkpoints/ppo_{run}_5000000_steps.zip")
 print(f"num steps: {env.num_steps}")
 
 # Run rollout
-for _ in range(1500):
+for _ in range(3001):
     action, _states = model.predict(obs, deterministic=True)
     obs, reward, terminated, truncated, info = env.step(action)
 
