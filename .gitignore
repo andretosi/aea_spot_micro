@@ -11,3 +11,4 @@ policy_training/logs
 *.png
 *.txt
 dockerfile
+logs
