@@ -5,7 +5,7 @@ from standing_reward_function import reward_function, init_custom_state
 from stable_baselines3.common.callbacks import CheckpointCallback
 
 TOTAL_STEPS = 5_000_000
-run = "stand5M-0"
+run = "stand5M-1"
 
 
 def clipped_linear_schedule(initial_value, min_value=1e-5):

@@ -541,9 +541,8 @@ class SpotmicroEnv(gym.Env):
 
     def _update_history(self):
         hist = []
-        pos, vel = self._get_joint_states()
-        hist.extend(pos)
-        hist.extend(vel)
+        hist.extend(self._joint_positions_norm())
+        hist.extend(self._joint_velocities_norm())
 
         self._joint_history.appendleft(hist)
     
@@ -587,6 +586,19 @@ class SpotmicroEnv(gym.Env):
         
         return gravity_base   
     
+    def _joint_positions_norm(self):
+        pos, _ = self._get_joint_states()
+        pos_norm = []
+        for i, joint in enumerate(self.motor_joints):
+            pos_norm.append(((2 * (pos[i] - joint.limits[0])) / (joint.limits[1] - joint.limits[0])) - 1) # Normalize ang position with respect to max range of motion
+        return pos_norm
+    
+    def _joint_velocities_norm(self):
+        _, vels = self._get_joint_states()
+        vel_norm = [np.tanh(vel / 10) for vel in vels] # Normalize velocity with resect to a hypotetical max velocity (10 rad/s)
+        return vel_norm
+
+    
     def _get_observation(self) -> np.ndarray:
         """
         - 0-2: gravity vector
@@ -600,14 +612,12 @@ class SpotmicroEnv(gym.Env):
         """
 
         obs = []
-        positions, velocities = self._get_joint_states()
-
         obs.extend(self._get_gravity_vector())
-        obs.append((self._agent_state["base_position"])[2])
-        obs.extend(self._agent_state["linear_velocity"])
-        obs.extend(self._agent_state["angular_velocity"])
-        obs.extend(positions)
-        obs.extend(velocities)
+        obs.append((((self._agent_state["base_position"])[2]) - self.TARGET_HEIGHT) / 0.235) # Normalized w respect a hypotetical max height of 235 cm
+        obs.extend(np.array(self._agent_state["linear_velocity"]) / 2.0) # Normalized w respect to a hypotetical max velocity (2 m/s)
+        obs.extend(np.array(self._agent_state["angular_velocity"]) / 10) # Normalized w respect to a hypotetical max ang velocity (10 rad/s)
+        obs.extend(self._joint_positions_norm()) 
+        obs.extend(self._joint_velocities_norm())
         obs.extend(self._joint_history[1])
         obs.extend(self._joint_history[4])
         obs.extend(self._previous_action)
