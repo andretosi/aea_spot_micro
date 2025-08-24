@@ -5,7 +5,7 @@ from walking_reward_function import reward_function, init_custom_state
 from stable_baselines3.common.callbacks import CheckpointCallback
 
 TOTAL_STEPS = 2_000_000
-run = "tilting7M-0"
+run = "tilting7M-1"
 base = "stand"
 
 
@@ -16,7 +16,7 @@ def clipped_linear_schedule(initial_value, min_value=1e-5):
 
 checkpoint_callback = CheckpointCallback(
     save_freq=TOTAL_STEPS / 5,                
-    save_path=f"./policies/{run}_checkpoints",  # Folder to save in
+    save_path=f"policies/{run}_checkpoints",  # Folder to save in
     name_prefix=f"ppo_{run}"            # File name prefix
 )
 
@@ -35,6 +35,7 @@ model.tensorboard_log = "./logs"
 model.learn(
     total_timesteps=TOTAL_STEPS,
     reset_num_timesteps=False,
+    callback=checkpoint_callback
     )
 model.save(f"policies/ppo_{run}")
 env.close()

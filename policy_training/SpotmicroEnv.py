@@ -398,7 +398,7 @@ class SpotmicroEnv(gym.Env):
                 pybullet.changeDynamics(
                     self._robot_id,
                     linkIndex=joint.id,
-                    lateralFriction=1.25,
+                    lateralFriction=1.5,
                     physicsClientId=self.physics_client
                 )
 
