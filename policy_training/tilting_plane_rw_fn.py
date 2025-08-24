@@ -1,6 +1,7 @@
 import pybullet
 import numpy as np
 from SpotmicroEnv import SpotmicroEnv
+import math
 
 def init_custom_state(env: SpotmicroEnv) -> None:
     """
@@ -64,19 +65,19 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     action_sparsity_reward =  np.exp(-4 * action_magnitude) # Reward for very small actions.
     joint_deviation = np.mean(np.abs(positions - homing_positions))
 
-    distance_penalty = np.linalg.norm(env.agent_base_position)
+    distance_penalty = math.sqrt(pow(env.agent_base_position[0], 2) + pow(env.agent_base_position[1], 2))
 
     # === Final Reward ===
     reward_dict = {
-        "uprightness": 2 * uprightness,
-        "height": 3 * height_reward,
-        #"contact_bonus": 1.5 * contact_bonus,
+        "uprightness": 1.5 * uprightness,
+        "height": 2.5 * height_reward,
+        "contact_bonus": 1 * contact_bonus,
         #"stand_bonus": 1.0 if uprightness > 0.9 and height_reward > 0.9 and num_feet_on_ground >= 3 else 0.0,
         #"effort_penalty": -2 * fade_in(env.num_steps, scale=2) * effort,
         #"joint_velocity_penalty": -3 * joint_velocity_penalty,
         "vertical_velocity_penalty": -2 * vertical_velocity_penalty,
         #"smoothness_penalty": -0.5 * smoothness_penalty,
-        "joint_deviation_penalty": -4 * joint_deviation,
+        "joint_deviation_penalty": -2 * joint_deviation,
         #"foot_stability_bonus": 2 * foot_stability_bonus,
         "action_sparsity_reward": 1 * action_sparsity_reward,
         "distance_penalty": -2 * distance_penalty

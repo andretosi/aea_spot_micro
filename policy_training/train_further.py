@@ -4,8 +4,9 @@ from stable_baselines3.common.env_checker import check_env
 from walking_reward_function import reward_function, init_custom_state
 from stable_baselines3.common.callbacks import CheckpointCallback
 
-TOTAL_STEPS = 8_000_000
-run = "stand10M-2"
+TOTAL_STEPS = 2_000_000
+run = "tilting7M-0"
+base = "stand"
 
 
 def clipped_linear_schedule(initial_value, min_value=1e-5):
@@ -14,7 +15,7 @@ def clipped_linear_schedule(initial_value, min_value=1e-5):
     return schedule
 
 checkpoint_callback = CheckpointCallback(
-    save_freq=TOTAL_STEPS / 20,                
+    save_freq=TOTAL_STEPS / 5,                
     save_path=f"./policies/{run}_checkpoints",  # Folder to save in
     name_prefix=f"ppo_{run}"            # File name prefix
 )
@@ -23,17 +24,17 @@ env = SpotmicroEnv(
     use_gui=False,
     reward_fn=reward_function, 
     init_custom_state=init_custom_state, 
-    src_save_file="states/statestand2M-2.pkl",
-    dest_save_file="states/state2M-2.pkl"
+    src_save_file=f"states/{base}.pkl",
+    dest_save_file=f"states/{run}.pkl"
     )
 check_env(env, warn=True) #optional
 
-model = PPO.load("policies/stand_base2M")
+model = PPO.load(f"policies/ppo_{base}")
 model.set_env(env)
 model.tensorboard_log = "./logs"
 model.learn(
     total_timesteps=TOTAL_STEPS,
     reset_num_timesteps=False,
     )
-model.save("policies/ppo_stand10M-2")
+model.save(f"policies/ppo_{run}")
 env.close()

@@ -4,7 +4,7 @@ from stable_baselines3 import PPO
 from SpotmicroEnv import SpotmicroEnv
 from standing_reward_function import reward_function, init_custom_state
 
-run = "stand"
+run = "tilt5M-1"
 
 env = SpotmicroEnv(
     use_gui=True, 
