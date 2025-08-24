@@ -64,7 +64,7 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     action_sparsity_reward =  np.exp(-4 * action_magnitude) # Reward for very small actions.
     joint_deviation = np.mean(np.abs(positions - homing_positions))
 
-    distance_penalty = np.linalg.norm(env.agent_base_position)
+    distance_penalty = np.norm(env.agent_base_position)
 
     # === Final Reward ===
     reward_dict = {
