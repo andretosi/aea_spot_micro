@@ -4,8 +4,8 @@ from stable_baselines3.common.env_checker import check_env
 from tilting_plane_rw_fn import reward_function, RewardState
 from stable_baselines3.common.callbacks import CheckpointCallback
 
-TOTAL_STEPS = 400_000
-run = "tilt5.4M"
+TOTAL_STEPS = 300_000
+run = "tilt5.3M"
 
 def clipped_linear_schedule(initial_value, min_value=1e-5):
     def schedule(progress_remaining):
