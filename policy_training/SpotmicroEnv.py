@@ -5,9 +5,16 @@ from collections import deque
 import matplotlib.pyplot as plt
 import inspect, os, pickle, warnings, yaml
 
+class SpotConfig:
+    def __init__(self, filename: str):
+        with open(filename, "r") as f:
+            cfg_dict = yaml.safe_load(f)
+
+        for key, value in cfg_dict.items():
+            setattr(self, key, value)
 
 class Joint:
-    def __init__(self, name: str, joint_id: int, joint_link_idx: int, joint_type: str, limits: tuple):
+    def __init__(self, name: str, joint_id: int, joint_link_idx: int, joint_type: str, limits: tuple, config: SpotConfig):
         self.name = name
         self.leftright = name.split("_")[1]
         self.frontback = name.split("_")[0]
@@ -22,22 +29,22 @@ class Joint:
         self.max_torque = 6
 
         if self.type == "shoulder": # Range: -0.548, 0.548
-            self.homing_position = -0.05 if self.leftright == "left" else 0.05
-            self.gain =  0.9
-            self.deadzone = 0.07
-            self.power = 2
+            self.homing_position = config.left_shoulder_hp if self.leftright == "left" else config.right_shoulder_hp
+            self.gain =  config.shoulder_gain
+            self.deadzone = config.shoulder_deadzone
+            self.power = config.shoulder_power
     
         elif self.type == "leg": # Range: -2.66, 1.5488
-            self.homing_position = -0.37 if self.frontback == "front" else -0.47
-            self.gain = 0.8
-            self.deadzone = 0.075
-            self.power = 2.2
+            self.homing_position = config.front_legs_hp if self.frontback == "front" else config.rear_legs_hp
+            self.gain = config.leg_gain
+            self.deadzone = config.leg_deadzone
+            self.power = config.leg_power
 
         elif self.type == "foot": # Ragnge: -0.1, 2.59
-            self.homing_position = 1.15 if self.frontback == "front" else 1.08
-            self.gain = 0.65
-            self.deadzone = 0.075
-            self.power = 2.3
+            self.homing_position = config.front_feet_hp if self.frontback == "front" else config.rear_feet_hp
+            self.gain = config.foot_gain
+            self.deadzone = config.foot_deadzone
+            self.power = config.foot_power
 
     def from_action_to_position(self, action: float) -> float:
         """
@@ -73,14 +80,6 @@ class Joint:
             target = h - r_minus * squash
 
         return float(np.clip(target, low, high))
-
-class SpotConfig:
-    def __init__(self, filename: str):
-        with open(filename, "r") as f:
-            cfg_dict = yaml.safe_load(f)
-
-        for key, value in cfg_dict.items():
-            setattr(self, key, value)
 
 class SpotmicroEnv(gym.Env):
     def __init__(self, config="config.yaml", use_gui=False, reward_fn=None, reward_state=None, dest_save_file=None, src_save_file=None, writer=None):
@@ -392,7 +391,7 @@ class SpotmicroEnv(gym.Env):
 
                 if joint_type == pybullet.JOINT_REVOLUTE:
                     joint_category = joint_name.split("_")[-1]
-                    motor_joints.append(Joint(joint_name, i, joint_link_id, joint_category, joint_limits))
+                    motor_joints.append(Joint(joint_name, i, joint_link_id, joint_category, joint_limits, self.config))
 
             self._motor_joints = tuple(motor_joints) # Made immutable to avoid problems
 

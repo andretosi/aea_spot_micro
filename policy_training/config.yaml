@@ -2,7 +2,7 @@
 max_torque: 6.5
 
 #Homing positions
-left_soulder_hp: -0.05
+left_shoulder_hp: -0.05
 right_shoulder_hp: 0.05
 front_legs_hp: -0.37
 rear_legs_hp: -0.47
@@ -14,7 +14,7 @@ homing_pitch: -0.07 #Tilt body slightly forward for stability
 #Mobility parameters: gains, deadzones, power
 shoulder_gain: 0.9
 shoulder_deadzone: 0.07
-shpulder_power: 2
+shoulder_power: 2
 
 leg_gain: 0.8
 leg_deadzone: 0.075
