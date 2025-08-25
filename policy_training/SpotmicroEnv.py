@@ -679,8 +679,8 @@ class SpotmicroEnv(gym.Env):
         self._tilt_step += 1
         
         #PARAMETERS
-        freq = 0.035
-        max_angle = np.radians(10)
+        freq = 0.02
+        max_angle = np.radians(7)
 
         tilt_x = max_angle * np.sin(freq * self._tilt_step + self._tilt_phase)
         tilt_y = max_angle * np.cos(freq * self._tilt_step + self._tilt_phase)
