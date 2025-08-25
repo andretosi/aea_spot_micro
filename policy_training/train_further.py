@@ -4,9 +4,9 @@ from stable_baselines3.common.env_checker import check_env
 from tilting_plane_rw_fn import reward_function, RewardState
 from stable_baselines3.common.callbacks import CheckpointCallback
 
-TOTAL_STEPS = 300_000
-run = "tilting8M"
-base = "stand"
+TOTAL_STEPS = 1_000_000
+run = "tilting9M"
+base = "tilting8M"
 
 
 def clipped_linear_schedule(initial_value, min_value=1e-5):

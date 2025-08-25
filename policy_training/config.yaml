@@ -45,5 +45,5 @@ jump_fall_penalty: -5
 tipping_penalty: -2
 
 #Tilting plane parameters
-rotation_frequency: 0.035
-max_tilt_angle: 0.1222 #= 7 degrees
+rotation_frequency: 0.04
+max_tilt_angle: 0.1745 #= 10 degrees
