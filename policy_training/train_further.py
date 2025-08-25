@@ -5,7 +5,7 @@ from tilting_plane_rw_fn import reward_function, RewardState
 from stable_baselines3.common.callbacks import CheckpointCallback
 
 TOTAL_STEPS = 3_000_000
-run = "tilting8M-0"
+run = "tilting5.3M"
 base = "stand"
 
 
@@ -15,7 +15,7 @@ def clipped_linear_schedule(initial_value, min_value=1e-5):
     return schedule
 
 checkpoint_callback = CheckpointCallback(
-    save_freq=TOTAL_STEPS / 5,                
+    save_freq=TOTAL_STEPS / 3,                
     save_path=f"policies/{run}_checkpoints",  # Folder to save in
     name_prefix=f"ppo_{run}"            # File name prefix
 )
