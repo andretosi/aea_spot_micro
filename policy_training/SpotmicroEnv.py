@@ -78,6 +78,7 @@ class SpotmicroEnv(gym.Env):
     def __init__(self, use_gui=False, reward_fn=None, reward_state=None, dest_save_file=None, src_save_file=None, writer=None):
         super().__init__()
 
+        #PARAMETERS
         self._OBS_SPACE_SIZE = 94
         self._ACT_SPACE_SIZE = 12
         self._MAX_EPISODE_LEN = 3000
@@ -86,8 +87,6 @@ class SpotmicroEnv(gym.Env):
         self._TARGET_DIRECTION = np.array([1.0, 0.0, 0.0])
         self.TARGET_HEIGHT = 0.220
         self._SURVIVAL_REWARD = 3.0
-        self._SIM_FREQUENCY = 240
-        self._CONTROL_FREQUENCY = 60
         self._JOINT_HISTORY_MAX_LEN = 5
         self.HOMING_PITCH = -0.07
 
@@ -133,7 +132,7 @@ class SpotmicroEnv(gym.Env):
         self._custom_state = dict()
 
         #If the agents is in this state, we terminate the simulation. Should quantize the fact that it has fallen, maybe a threshold?
-        self._target_state = {
+        self._target_state = { #PARAMETER
             "min_height": 0.13, #meters?
             "max_height": 0.40,
             "max_pitchroll": np.radians(55)
@@ -317,7 +316,7 @@ class SpotmicroEnv(gym.Env):
         super().reset(seed=seed)
         self._episode_step_counter = 0
         self._action_counter = 0
-        self._agent_state["base_position"] = (0.0 , 0.0, 0.230) #Height set specifically through trial and error
+        self._agent_state["base_position"] = (0.0 , 0.0, 0.230) #Height set specifically through trial and error. PARAMETER
         self._agent_state["base_orientation"] = pybullet.getQuaternionFromEuler([0, self.HOMING_PITCH, np.pi])
         self._agent_state["linear_velocity"] = np.zeros(3)
         self._agent_state["angular_velocity"] = np.zeros(3)
@@ -495,7 +494,6 @@ class SpotmicroEnv(gym.Env):
             except Exception as e:
                 print(f"[Logging Error] Could not log {key}: {e}")
     
-    #@TODO: should also tilt the plane, look up the code fromm the notebook
     def _step_simulation(self, action: np.ndarray) -> np.ndarray:
         """
         Private method that calls the API to execute the given action in PyBullet.
@@ -587,7 +585,7 @@ class SpotmicroEnv(gym.Env):
             pos_norm.append(((2 * (pos[i] - joint.limits[0])) / (joint.limits[1] - joint.limits[0])) - 1) # Normalize ang position with respect to max range of motion
         return pos_norm
     
-    def _joint_velocities_norm(self):
+    def _joint_velocities_norm(self): #PARAMETER (normalization)
         _, vels = self._get_joint_states()
         vel_norm = [np.tanh(vel / 10) for vel in vels] # Normalize velocity with resect to a hypotetical max velocity (10 rad/s)
         return vel_norm
@@ -605,6 +603,7 @@ class SpotmicroEnv(gym.Env):
         - 82-93: previous action
         """
 
+        #NORMALIZATION PARAMETERS
         obs = []
         obs.extend(self._get_gravity_vector())
         obs.append((((self._agent_state["base_position"])[2]) - self.TARGET_HEIGHT) / 0.235) # Normalized w respect a hypotetical max height of 235 cm
