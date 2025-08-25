@@ -4,3 +4,4 @@ gymnasium
 stable-baselines3
 catkin_pkg
 tensorboard
+pyyaml
