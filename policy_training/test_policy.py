@@ -4,7 +4,7 @@ from stable_baselines3 import PPO
 from SpotmicroEnv import SpotmicroEnv
 from tilting_plane_rw_fn import reward_function, RewardState
 
-run = "tilting5.4M"
+run = "tilting8M"
 
 env = SpotmicroEnv(
     use_gui=True, 
@@ -15,8 +15,8 @@ env = SpotmicroEnv(
 obs, _ = env.reset()
 
 # Load your trained model
-#model = PPO.load(f"policies/ppo_{run}")  # or path to your .zip
-model = PPO.load(f"policies/{run}_checkpoints/ppo_{run}_5601216_steps.zip")
+model = PPO.load(f"policies/ppo_{run}")  # or path to your .zip
+#model = PPO.load(f"policies/{run}_checkpoints/ppo_{run}_5601216_steps.zip")
 print(f"num steps: {env.num_steps}")
 
 # Run rollout

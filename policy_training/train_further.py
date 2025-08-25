@@ -4,8 +4,8 @@ from stable_baselines3.common.env_checker import check_env
 from tilting_plane_rw_fn import reward_function, RewardState
 from stable_baselines3.common.callbacks import CheckpointCallback
 
-TOTAL_STEPS = 3_000_000
-run = "tilting5.3M"
+TOTAL_STEPS = 300_000
+run = "tilting8M"
 base = "stand"
 
 
