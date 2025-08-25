@@ -22,12 +22,12 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
 
     # === Uprightness Reward ===
     max_angle = np.radians(45)  # anything over this is considered tipping
-    uprightness = 1.0 - (abs(roll) + abs(pitch-env.HOMING_PITCH)) / max_angle
+    uprightness = 1.0 - (abs(roll) + abs(pitch-env.config.homing_pitch)) / max_angle
     uprightness = np.clip(uprightness, 0.0, 1.0)
 
     # === Height Reward ===
-    TARGET_HEIGHT = env.TARGET_HEIGHT  # Should be your standing height (~0.2–0.25m usually)
-    height_error = abs(base_height - TARGET_HEIGHT)
+    # Should be your standing height (~0.2–0.25m usually)
+    height_error = abs(base_height - env.config.target_height)
     height_reward = np.exp(-5 * height_error)  # 1 if perfect, drops off quickly
 
     # === Foot Contact Bonus ===

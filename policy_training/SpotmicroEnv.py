@@ -3,7 +3,7 @@ import numpy as np
 import gymnasium as gym
 from collections import deque
 import matplotlib.pyplot as plt
-import inspect, os, pickle, warnings
+import inspect, os, pickle, warnings, yaml
 
 
 class Joint:
@@ -74,22 +74,33 @@ class Joint:
 
         return float(np.clip(target, low, high))
 
+class SpotConfig:
+    def __init__(self, filename: str):
+        with open(filename, "r") as f:
+            cfg_dict = yaml.safe_load(f)
+
+        for key, value in cfg_dict.items():
+            setattr(self, key, value)
+
 class SpotmicroEnv(gym.Env):
-    def __init__(self, use_gui=False, reward_fn=None, reward_state=None, dest_save_file=None, src_save_file=None, writer=None):
+    def __init__(self, config="config.yaml", use_gui=False, reward_fn=None, reward_state=None, dest_save_file=None, src_save_file=None, writer=None):
         super().__init__()
+
+        if not isinstance(config, str):
+            raise TypeError("config must be a string")
+        if not os.path.isfile(config):
+            raise FileNotFoundError(f"File {config} does not exist")
+
+        self.config = SpotConfig(config)
 
         self._OBS_SPACE_SIZE = 94
         self._ACT_SPACE_SIZE = 12
         self._MAX_EPISODE_LEN = 3000
         self._SIM_FREQUENCY = 240
         self._CONTROL_FREQUENCY = 60
-        self._TARGET_DIRECTION = np.array([1.0, 0.0, 0.0])
-        self.TARGET_HEIGHT = 0.220
-        self._SURVIVAL_REWARD = 3.0
-        self._SIM_FREQUENCY = 240
-        self._CONTROL_FREQUENCY = 60
         self._JOINT_HISTORY_MAX_LEN = 5
-        self.HOMING_PITCH = -0.07
+
+        self._TARGET_DIRECTION = np.array([1.0, 0.0, 0.0])
 
         self._episode_step_counter = 0
         self._total_steps_counter = 0
@@ -103,8 +114,8 @@ class SpotmicroEnv(gym.Env):
         self.use_gui = use_gui
         self.np_random = None
 
-        self.reward_state = reward_state
 
+        self.reward_state = reward_state
         self._episode_reward_info = None
         self.writer = writer
 
@@ -134,9 +145,9 @@ class SpotmicroEnv(gym.Env):
 
         #If the agents is in this state, we terminate the simulation. Should quantize the fact that it has fallen, maybe a threshold?
         self._target_state = {
-            "min_height": 0.13, #meters?
-            "max_height": 0.40,
-            "max_pitchroll": np.radians(55)
+            "min_height": self.config.min_height, #meters?
+            "max_height": self.config.max_height,
+            "max_pitchroll": self.config.max_pitchroll
         }
 
         if reward_fn is None:
@@ -317,8 +328,8 @@ class SpotmicroEnv(gym.Env):
         super().reset(seed=seed)
         self._episode_step_counter = 0
         self._action_counter = 0
-        self._agent_state["base_position"] = (0.0 , 0.0, 0.230) #Height set specifically through trial and error
-        self._agent_state["base_orientation"] = pybullet.getQuaternionFromEuler([0, self.HOMING_PITCH, np.pi])
+        self._agent_state["base_position"] = (0.0 , 0.0, self.config.spawn_height) #Height set specifically through trial and error
+        self._agent_state["base_orientation"] = pybullet.getQuaternionFromEuler([0, self.config.homing_pitch, np.pi])
         self._agent_state["linear_velocity"] = np.zeros(3)
         self._agent_state["angular_velocity"] = np.zeros(3)
         self._agent_state["ground_feet_contacts"] = set()
@@ -457,7 +468,7 @@ class SpotmicroEnv(gym.Env):
 
         self._episode_reward_info.append(reward_info)
         if truncated:
-            reward += self._SURVIVAL_REWARD
+            reward += self.config.survival_reward
         if terminated:
             reward += term_penalty
 
@@ -555,7 +566,7 @@ class SpotmicroEnv(gym.Env):
         for contact in contact_points:
             link_idx = contact[3]  # linkIndexA from your robot
             for joint in self._motor_joints:
-                if link_idx -1 == joint.link_id and joint.type == "foot": # linkd indices in contacts are shifted by 1 compared to the ones stored in the joint objects (it's conventional). We apply the -1 shift to address the joint with their saved link_id
+                if link_idx - 1 == joint.link_id and joint.type == "foot": # linkd indices in contacts are shifted by 1 compared to the ones stored in the joint objects (it's conventional). We apply the -1 shift to address the joint with their saved link_id
                     feet_in_contact.add(link_idx - 1)
         
         return feet_in_contact
@@ -589,7 +600,7 @@ class SpotmicroEnv(gym.Env):
     
     def _joint_velocities_norm(self):
         _, vels = self._get_joint_states()
-        vel_norm = [np.tanh(vel / 10) for vel in vels] # Normalize velocity with resect to a hypotetical max velocity (10 rad/s)
+        vel_norm = [np.tanh(vel / self.config.max_joint_velocity) for vel in vels] # Normalize velocity with resect to a hypotetical max velocity (10 rad/s)
         return vel_norm
 
     
@@ -607,9 +618,9 @@ class SpotmicroEnv(gym.Env):
 
         obs = []
         obs.extend(self._get_gravity_vector())
-        obs.append((((self._agent_state["base_position"])[2]) - self.TARGET_HEIGHT) / 0.235) # Normalized w respect a hypotetical max height of 235 cm
-        obs.extend(np.array(self._agent_state["linear_velocity"]) / 2.0) # Normalized w respect to a hypotetical max velocity (2 m/s)
-        obs.extend(np.array(self._agent_state["angular_velocity"]) / 10) # Normalized w respect to a hypotetical max ang velocity (10 rad/s)
+        obs.append((((self._agent_state["base_position"])[2]) - self.config.target_height) / self.config.max_height) # Normalized w respect a hypotetical max height of 235 cm
+        obs.extend(np.array(self._agent_state["linear_velocity"]) / self.config.max_linear_velocity) # Normalized w respect to a hypotetical max velocity (2 m/s)
+        obs.extend(np.array(self._agent_state["angular_velocity"]) / self.config.max_angular_velocity) # Normalized w respect to a hypotetical max ang velocity (10 rad/s)
         obs.extend(self._joint_positions_norm()) 
         obs.extend(self._joint_velocities_norm())
         obs.extend(self._joint_history[1])
@@ -646,9 +657,9 @@ class SpotmicroEnv(gym.Env):
         height = base_pos[2]
 
         if height <= self._target_state["min_height"] or height > self._target_state["max_height"]:
-            return (True, -30)
+            return (True, self.config.jump_fall_penalty) 
         elif abs(roll) > self._target_state["max_pitchroll"] or abs(pitch) > self._target_state["max_pitchroll"]:
-            return (True, -5)
+            return (True, self.config.tipping_penalty)
         else:
             return (False, 0)
     
@@ -679,8 +690,8 @@ class SpotmicroEnv(gym.Env):
 
         self._tilt_step += 1
 
-        freq = 0.02
-        max_angle = np.radians(7)
+        freq = self.config.rotation_frequency
+        max_angle = self.config.max_tilt_angle
 
         tilt_x = max_angle * np.sin(freq * self._tilt_step + self._tilt_phase)
         tilt_y = max_angle * np.cos(freq * self._tilt_step + self._tilt_phase)

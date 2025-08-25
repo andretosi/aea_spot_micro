@@ -1,0 +1,49 @@
+# <-- JOINT PARAMETERS -->
+max_torque: 6.5
+
+#Homing positions
+left_soulder_hp: -0.05
+right_shoulder_hp: 0.05
+front_legs_hp: -0.37
+rear_legs_hp: -0.47
+front_feet_hp: 1.15
+rear_feet_hp: 1.08
+
+homing_pitch: -0.07 #Tilt body slightly forward for stability
+
+#Mobility parameters: gains, deadzones, power
+shoulder_gain: 0.9
+shoulder_deadzone: 0.07
+shpulder_power: 2
+
+leg_gain: 0.8
+leg_deadzone: 0.075
+leg_power: 2.2
+
+foot_gain: 0.65
+foot_deadzone: 0.075
+foot_power: 2.3
+
+# <-- ENVIRONMENT PARAMETERS -->
+target_height: 0.220
+spawn_height: 0.230
+
+#Target states
+min_height: 0.13
+max_height: 0.4
+max_pitchroll: 0.96 #Radians = 55 degrees
+
+#Normalization parameters
+max_joint_velocity: 10 #Rad/s
+max_height: 0.235
+max_linear_velocity: 2.0
+max_angular_velocity: 10
+
+#Termination rewards/penalties
+survival_reward: 3.0
+jump_fall_penalty: -5
+tipping_penalty: -2
+
+#Tilting plane parameters
+rotation_frequency: 0.035
+max_tilt_angle: 0.1222 #= 7 degrees
