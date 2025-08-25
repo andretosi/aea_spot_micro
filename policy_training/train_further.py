@@ -1,7 +1,7 @@
 from SpotmicroEnv import SpotmicroEnv
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_checker import check_env
-from walking_reward_function import reward_function, init_custom_state
+from tilting_plane_rw_fn import reward_function, RewardState
 from stable_baselines3.common.callbacks import CheckpointCallback
 
 TOTAL_STEPS = 3_000_000
@@ -23,7 +23,7 @@ checkpoint_callback = CheckpointCallback(
 env = SpotmicroEnv(
     use_gui=False,
     reward_fn=reward_function, 
-    init_custom_state=init_custom_state, 
+    reward_state=RewardState(), 
     src_save_file=f"states/{base}.pkl",
     dest_save_file=f"states/{run}.pkl"
     )

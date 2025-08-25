@@ -3,11 +3,9 @@ import numpy as np
 from SpotmicroEnv import SpotmicroEnv
 import math
 
-def init_custom_state(env: SpotmicroEnv) -> None:
-    """
-    Initialize custom state tracking if needed (not much used here).
-    """
-    env.set_custom_state("prev_contacts", set())
+class RewardState:
+    def __init__(self):
+        self.prev_contacts = set()
 
 def fade_in(current_step, start=300_000, scale=2.0):
     if current_step < start:
@@ -41,8 +39,8 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     else:
         contact_bonus = -0.5  # unstable or collapsed
 
-    prev_contacts = env.get_custom_state("prev_contacts")
-    env.set_custom_state("prev_contacts", contacts)
+    prev_contacts = env.reward_state.prev_contacts
+    env.reward_state.prev_contacts = contacts
     foot_stability_bonus = 0.5 if prev_contacts == contacts else 0
 
     # == EFFORT ==

@@ -75,7 +75,7 @@ class Joint:
         return float(np.clip(target, low, high))
 
 class SpotmicroEnv(gym.Env):
-    def __init__(self, use_gui=False, reward_fn=None, init_custom_state=None, dest_save_file=None, src_save_file=None, writer=None):
+    def __init__(self, use_gui=False, reward_fn=None, reward_state=None, dest_save_file=None, src_save_file=None, writer=None):
         super().__init__()
 
         self._OBS_SPACE_SIZE = 94
@@ -102,6 +102,8 @@ class SpotmicroEnv(gym.Env):
         self.physics_client = None
         self.use_gui = use_gui
         self.np_random = None
+
+        self.reward_state = reward_state
 
         self._episode_reward_info = None
         self.writer = writer
@@ -143,14 +145,6 @@ class SpotmicroEnv(gym.Env):
             raise ValueError("reward_fn must be callable (function)")
 
         self._reward_fn = reward_fn
-
-        # Initialize custom function if provided
-        if init_custom_state is not None:
-            if not callable(init_custom_state):
-                raise ValueError("init_custom_fn must be callable (function)")
-            self._init_custom_state = init_custom_state
-        else:
-            self._init_custom_state = lambda env: None
     
         self._dest_save = dest_save_file
         if self._dest_save is not None:
@@ -401,9 +395,6 @@ class SpotmicroEnv(gym.Env):
                     lateralFriction=1.5,
                     physicsClientId=self.physics_client
                 )
-
-        # Initialize custom state
-        self._init_custom_state(self)
 
         #this is just to let the physics stabilize? -> might need to remove this loop
         for _ in range(10):

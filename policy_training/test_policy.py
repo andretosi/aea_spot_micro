@@ -2,21 +2,21 @@ import time
 import numpy as np
 from stable_baselines3 import PPO
 from SpotmicroEnv import SpotmicroEnv
-from standing_reward_function import reward_function, init_custom_state
+from tilting_plane_rw_fn import reward_function, RewardState
 
-run = "tilting8M-0"
+run = "tilting5.4M"
 
 env = SpotmicroEnv(
     use_gui=True, 
     reward_fn=reward_function,
-    init_custom_state=init_custom_state,
+    reward_state=RewardState(),
     src_save_file=f"states/{run}.pkl"
     )
 obs, _ = env.reset()
 
 # Load your trained model
-model = PPO.load(f"policies/ppo_{run}")  # or path to your .zip
-#model = PPO.load(f"policies/{run}_checkpoints/ppo_{run}_5000000_steps.zip")
+#model = PPO.load(f"policies/ppo_{run}")  # or path to your .zip
+model = PPO.load(f"policies/{run}_checkpoints/ppo_{run}_5601216_steps.zip")
 print(f"num steps: {env.num_steps}")
 
 # Run rollout
