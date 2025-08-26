@@ -31,7 +31,7 @@ check_env(env, warn=True) #optional
 
 model = PPO.load(f"policies/ppo_{base}")
 model.set_env(env)
-model.tensorboard_log = "./logs"
+#model.tensorboard_log = "./logs"
 model.learn(
     total_timesteps=TOTAL_STEPS,
     reset_num_timesteps=False,
