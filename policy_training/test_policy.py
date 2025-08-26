@@ -2,7 +2,7 @@ import time
 import numpy as np
 from stable_baselines3 import PPO
 from SpotmicroEnv import SpotmicroEnv
-from tilting_plane_rw_fn import reward_function, RewardState
+from walking_reward_function import reward_function, RewardState
 
 run = "tilting8M"
 

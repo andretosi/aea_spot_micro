@@ -1,7 +1,7 @@
 from SpotmicroEnv import SpotmicroEnv
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_checker import check_env
-from tilting_plane_rw_fn import reward_function, RewardState
+from walking_reward_function import reward_function, RewardState
 from stable_baselines3.common.callbacks import CheckpointCallback
 
 TOTAL_STEPS = 300_000

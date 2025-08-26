@@ -1,11 +1,11 @@
 from SpotmicroEnv import SpotmicroEnv
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_checker import check_env
-from tilting_plane_rw_fn import reward_function, RewardState
+from walking_reward_function import reward_function, RewardState
 from stable_baselines3.common.callbacks import CheckpointCallback
 
-TOTAL_STEPS = 1_000_000
-run = "tilting9M"
+TOTAL_STEPS = 9_000_000
+run = "walking17M"
 base = "tilting8M"
 
 
@@ -15,7 +15,7 @@ def clipped_linear_schedule(initial_value, min_value=1e-5):
     return schedule
 
 checkpoint_callback = CheckpointCallback(
-    save_freq=TOTAL_STEPS / 3,                
+    save_freq=TOTAL_STEPS / 9,                
     save_path=f"policies/{run}_checkpoints",  # Folder to save in
     name_prefix=f"ppo_{run}"            # File name prefix
 )

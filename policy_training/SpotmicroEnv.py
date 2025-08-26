@@ -522,7 +522,7 @@ class SpotmicroEnv(gym.Env):
             )
         
         self._episode_step_counter += 1 #updates the step counter (used to check against timeouts)
-        self._tilt_plane()
+        #self._tilt_plane()
         pybullet.stepSimulation()
         self._update_agent_state()
 

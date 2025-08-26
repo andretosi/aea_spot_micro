@@ -2,11 +2,9 @@ import pybullet
 import numpy as np
 from SpotmicroEnv import SpotmicroEnv
 
-def init_custom_state(env: SpotmicroEnv) -> None:
-    """
-    Initialize custom state tracking if needed (not much used here).
-    """
-    env.set_custom_state("prev_contacts", set())
+class RewardState:
+    def __init__(self):
+        self.prev_contacts = set()
 
 def fade_in(current_step, start=300_000, scale=2.0):
     if current_step < start:
@@ -21,12 +19,11 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
 
     # === Uprightness Reward ===
     max_angle = np.radians(45)  # anything over this is considered tipping
-    uprightness = 1.0 - (abs(roll) + abs(pitch-env.HOMING_PITCH)) / max_angle
+    uprightness = 1.0 - (abs(roll) + abs(pitch-env.config.homing_pitch)) / max_angle
     uprightness = np.clip(uprightness, 0.0, 1.0)
 
     # === Height Reward ===
-    TARGET_HEIGHT = env.TARGET_HEIGHT  # Should be your standing height (~0.2–0.25m usually)
-    height_error = abs(base_height - TARGET_HEIGHT)
+    height_error = abs(base_height - env.config.target_height)
     height_reward = np.exp(-10 * height_error)  # 1 if perfect, drops off quickly
 
     # === Foot Contact Bonus ===
@@ -38,8 +35,8 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     else:
         contact_bonus = -0.5  # unstable or collapsed
 
-    prev_contacts = env.get_custom_state("prev_contacts")
-    env.set_custom_state("prev_contacts", contacts)
+    prev_contacts = env.reward_state.prev_contacts
+    env.reward_state.prev_contacts = contacts
     foot_stability_bonus = 0.5 if prev_contacts == contacts else 0
 
     # == EFFORT ==
@@ -64,15 +61,15 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
 
     # === Final Reward ===
     reward_dict = {
-        "uprightness": uprightness,
-        "height": height_reward,
-        "contact_bonus": contact_bonus,
-        "effort_penalty": -effort_penalty,
+        "uprightness": 1.5 * uprightness,
+        "height": 2 * height_reward,
+        "contact_bonus": 1.5 * contact_bonus,
+        "effort_penalty": -1 * effort_penalty,
         "stand_bonus": 1.0 if uprightness > 0.9 and height_reward > 0.9 and num_feet_on_ground >= 3 else 0.0,
-        "velocity_penalty": velocity_penalty * 2,
-        "smoothness_penalty": delta_action,
-        "foot_stability_bonus": foot_stability_bonus,
-        "fwd_reward": 3 * fwd_reward
+        "velocity_penalty": -2 * velocity_penalty,
+        "smoothness_penalty": -1 * smoothness_penalty,
+        "foot_stability_bonus": 1 * foot_stability_bonus,
+        "fwd_reward": 5 * fwd_reward
     }
     total_reward = sum(reward_dict.values())
 
