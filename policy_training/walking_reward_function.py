@@ -33,10 +33,10 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
 
     # === Foot Contact Bonus ===
     num_feet_on_ground = len(contacts)
-    if num_feet_on_ground >= 3:
+    if num_feet_on_ground == 3 or num_feet_on_ground == 2:
         contact_bonus = 1.0
-    elif num_feet_on_ground == 2:
-        contact_bonus = 0.5
+    elif num_feet_on_ground == 4:
+        contact_bonus = 0.75
     else:
         contact_bonus = -0.5  # unstable or collapsed
 
@@ -61,8 +61,10 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     # == FORWARD REWARD ==
     target_direction = env.target_direction  # Assume [1, 0, 0] for +x
     velocity = np.array(env.agent_linear_velocity)
+    vertical_velocity = velocity[2]
     forward_velocity = np.dot(velocity, target_direction)
     fwd_reward = np.clip(forward_velocity, -1.0, 1.0)
+    vertical_velocity_penalty = vertical_velocity**2
 
     stillness_penalty = np.exp(-50 * np.linalg.norm(env.agent_linear_velocity))
 
@@ -70,14 +72,15 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     reward_dict = {
         "uprightness": 1.5 * uprightness,
         "height": 2 * height_reward,
-        "contact_bonus": 1.5 * contact_bonus,
+        "contact_bonus": 0.5 * contact_bonus, #Make this conditional?
         "effort_penalty": -1 * fade_in(env.num_steps, 13_000_000, 2) * effort_penalty,
-        "stand_bonus": 1.0 if uprightness > 0.9 and height_reward > 0.9 and num_feet_on_ground >= 3 else 0.0,
+        "stand_bonus": 0.5 if uprightness > 0.9 and height_reward > 0.9 and num_feet_on_ground >= 3 else 0.0,
         "velocity_penalty": -1 * fade_in(env.num_steps, 13_000_000, 2) * velocity_penalty,
         "smoothness_penalty": -1 * smoothness_penalty,
         "foot_stability_bonus": 1 * foot_stability_bonus,
-        "fwd_reward": (10 + 5 * fade_out(env.num_steps, 14_000_000, 2)) * fwd_reward,
-        "stillness_penalty": (-5 + 2 * fade_in(env.num_steps, 12_000_000, 1.5)) * stillness_penalty
+        "fwd_reward": (7 + 5 * fade_out(env.num_steps, 14_000_000, 2)) * fwd_reward,
+        "stillness_penalty": (-5 + 2 * fade_in(env.num_steps, 12_000_000, 1.5)) * stillness_penalty,
+        "vertical_velocity_penalty": -3 * vertical_velocity_penalty
     }
     total_reward = sum(reward_dict.values())
 

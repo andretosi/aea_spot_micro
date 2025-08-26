@@ -4,19 +4,19 @@ from stable_baselines3 import PPO
 from SpotmicroEnv import SpotmicroEnv
 from walking_reward_function import reward_function, RewardState
 
-run = "walking17M"
+run = "walking17M-1"
 
 env = SpotmicroEnv(
     use_gui=True, 
     reward_fn=reward_function,
     reward_state=RewardState(),
-    src_save_file=f"states/{run}.pkl"
+    #src_save_file=f"states/{run}.pkl"
     )
 obs, _ = env.reset()
 
 # Load your trained model
-model = PPO.load(f"policies/ppo_{run}")  # or path to your .zip
-#model = PPO.load(f"policies/{run}_checkpoints/ppo_{run}_10001536_steps.zip")
+#model = PPO.load(f"policies/ppo_{run}")  # or path to your .zip
+model = PPO.load(f"policies/{run}_checkpoints/ppo_{run}_12001536_steps.zip")
 print(f"num steps: {env.num_steps}")
 
 # Run rollout
