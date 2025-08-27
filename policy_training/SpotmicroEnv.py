@@ -648,7 +648,7 @@ class SpotmicroEnv(gym.Env):
         #NORMALIZATION PARAMETERS
         obs = []
         obs.extend(self._get_gravity_vector())
-        obs.append((((self._agent_state["base_position"])[2]) - self.config.target_height) / self.config.max_height) # Normalized w respect a hypotetical max height of 235 cm
+        obs.append((((self._agent_state["base_position"])[2]) - self.config.target_height) / self.config.max_norm_height) # Normalized w respect a hypotetical max height of 235 cm
         obs.extend(np.array(self._agent_state["linear_velocity"]) / self.config.max_linear_velocity) # Normalized w respect to a hypotetical max velocity (2 m/s)
         obs.extend(np.array(self._agent_state["angular_velocity"]) / self.config.max_angular_velocity) # Normalized w respect to a hypotetical max ang velocity (10 rad/s)
         obs.extend(self._joint_positions_norm()) 
@@ -687,8 +687,10 @@ class SpotmicroEnv(gym.Env):
         height = base_pos[2]
 
         if height <= self._target_state["min_height"] or height > self._target_state["max_height"]:
+            print(f"Terminated because of height restrictions (height = {height}, min_h = {self._target_state["min_height"]}, max_h = {self._target_state["max_height"]}) ")
             return (True, self.config.jump_fall_penalty) 
         elif abs(roll) > self._target_state["max_pitchroll"] or abs(pitch) > self._target_state["max_pitchroll"]:
+            print("Terminated because of pitch and roll restrictions")
             return (True, self.config.tipping_penalty)
         else:
             return (False, 0)

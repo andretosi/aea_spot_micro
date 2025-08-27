@@ -35,7 +35,7 @@ max_pitchroll: 0.96 #Radians = 55 degrees
 
 #Normalization parameters
 max_joint_velocity: 10 #Rad/s
-max_height: 0.235
+max_norm_height: 0.235
 max_linear_velocity: 2.0
 max_angular_velocity: 10
 
