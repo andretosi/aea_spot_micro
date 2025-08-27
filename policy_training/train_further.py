@@ -5,7 +5,7 @@ from walking_reward_function import reward_function, RewardState
 from stable_baselines3.common.callbacks import CheckpointCallback
 
 TOTAL_STEPS = 9_000_000
-run = "walking17M-1"
+run = "walking17M-2"
 base = "tilting8M"
 
 

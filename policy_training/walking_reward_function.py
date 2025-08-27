@@ -18,69 +18,26 @@ def fade_out(current_step, start, scale=2.0):
 
 def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]:
 
+    positions, _ = env.agent_joint_state
     roll, pitch, _ = pybullet.getEulerFromQuaternion(env.agent_base_orientation)
-    base_height = env.agent_base_position[2]
-    contacts = env.agent_ground_feet_contacts
 
-    # === Uprightness Reward ===
-    max_angle = np.radians(45)  # anything over this is considered tipping
-    uprightness = 1.0 - (abs(roll) + abs(pitch-env.config.homing_pitch)) / max_angle
-    uprightness = np.clip(uprightness, 0.0, 1.0)
-
-    # === Height Reward ===
-    height_error = abs(base_height - env.config.target_height)
-    height_reward = np.exp(-10 * height_error)  # 1 if perfect, drops off quickly
-
-    # === Foot Contact Bonus ===
-    num_feet_on_ground = len(contacts)
-    if num_feet_on_ground == 3 or num_feet_on_ground == 2:
-        contact_bonus = 1.0
-    elif num_feet_on_ground == 4:
-        contact_bonus = 0.75
-    else:
-        contact_bonus = -0.5  # unstable or collapsed
-
-    prev_contacts = env.reward_state.prev_contacts
-    env.reward_state.prev_contacts = contacts
-    foot_stability_bonus = 0.5 if prev_contacts == contacts else 0
-
-    # == EFFORT ==
-    effort = sum(abs(joint.effort) / joint.max_torque for joint in env.motor_joints) / len(env.motor_joints)
-    effort_penalty = effort * 0.5
-    
-
-    # == Joint velocity ==
-    _, joint_velocities = env.agent_joint_state
-    avg_joint_vel = np.mean(np.abs(joint_velocities))
-    velocity_penalty = np.clip(avg_joint_vel, 0, 1)
-
-    # == delta action ==
-    delta_action = np.mean(np.abs(action - env.agent_previous_action))
-    smoothness_penalty = delta_action**2
-
-    # == FORWARD REWARD ==
-    target_direction = env.target_direction  # Assume [1, 0, 0] for +x
-    velocity = np.array(env.agent_linear_velocity)
-    vertical_velocity = velocity[2]
-    forward_velocity = np.dot(velocity, target_direction)
-    fwd_reward = np.clip(forward_velocity, -1.0, 1.0)
-    vertical_velocity_penalty = vertical_velocity**2
-
-    stillness_penalty = np.exp(-50 * np.linalg.norm(env.agent_linear_velocity))
+    lin_vel_error = np.linalg.norm(env.target_lin_velocity - env.agent_linear_velocity) ** 2
+    ang_vel_error = np.linalg.norm(env.target_ang_velocity - env.agent_angular_velocity) ** 2
+    deviation_penalty = np.linalg.norm(positions - np.array(env.homing_positions)) ** 2
+    height_penalty = (env.agent_base_position[2] - env.config.target_height) ** 2
+    action_rate = np.linalg.norm(action - env.agent_previous_action) ** 2
+    vertical_velocity_sq =  env.agent_linear_velocity[2] ** 2
+    stabilization_penalty = roll ** 2 + pitch ** 2
 
     # === Final Reward ===
     reward_dict = {
-        "uprightness": 1.5 * uprightness,
-        "height": 2 * height_reward,
-        "contact_bonus": 0.5 * contact_bonus, #Make this conditional?
-        "effort_penalty": -1 * fade_in(env.num_steps, 13_000_000, 2) * effort_penalty,
-        "stand_bonus": 0.5 if uprightness > 0.9 and height_reward > 0.9 and num_feet_on_ground >= 3 else 0.0,
-        "velocity_penalty": -1 * fade_in(env.num_steps, 13_000_000, 2) * velocity_penalty,
-        "smoothness_penalty": -1 * smoothness_penalty,
-        "foot_stability_bonus": 1 * foot_stability_bonus,
-        "fwd_reward": (7 + 5 * fade_out(env.num_steps, 14_000_000, 2)) * fwd_reward,
-        "stillness_penalty": (-5 + 2 * fade_in(env.num_steps, 12_000_000, 1.5)) * stillness_penalty,
-        "vertical_velocity_penalty": -3 * vertical_velocity_penalty
+        "linear_vel_penalty": -2 * lin_vel_error,
+        "height_penalty": -1.5 * height_penalty,
+        "stabilization_penalty": -1.5 * stabilization_penalty,
+        "angular_vel_penalty": -1 * ang_vel_error,
+        "action_rate_penalty": -1 * action_rate,
+        "vertical_velocity_penalty": -1 * vertical_velocity_sq,
+        "deviation_penalty": -0.5 * deviation_penalty,
     }
     total_reward = sum(reward_dict.values())
 

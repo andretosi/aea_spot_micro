@@ -99,7 +99,8 @@ class SpotmicroEnv(gym.Env):
         self._CONTROL_FREQUENCY = 60
         self._JOINT_HISTORY_MAX_LEN = 5
 
-        self._TARGET_DIRECTION = np.array([1.0, 0.0, 0.0])
+        self._TARGET_LINEAR_VELOCITY = np.array([0.4, 0.0, 0.0])
+        self._TARGET_ANGULAR_VELOCITY = np.array([0.0, 0.0, 0.0])
 
         self._episode_step_counter = 0
         self._total_steps_counter = 0
@@ -107,6 +108,7 @@ class SpotmicroEnv(gym.Env):
         self._robot_id = None
         self._plane_id = None
         self._motor_joints = None
+        self._homing_positions = None
         self._joint_history = deque(maxlen=self._JOINT_HISTORY_MAX_LEN)
         self._previous_action = np.zeros(self._ACT_SPACE_SIZE, dtype=np.float32)
         self.physics_client = None
@@ -182,7 +184,8 @@ class SpotmicroEnv(gym.Env):
             "total_steps_counter": self._total_steps_counter,
             "previous_action": self._previous_action,
             "joint_history": list(self._joint_history),
-            "target_direction": self._TARGET_DIRECTION
+            "target_linear_velocity": self._TARGET_LINEAR_VELOCITY,
+            "target_angular_velocity": self._TARGET_ANGULAR_VELOCITY
         }
 
         with open(self._dest_save, "wb") as f:
@@ -195,7 +198,8 @@ class SpotmicroEnv(gym.Env):
         self._total_steps_counter = state["total_steps_counter"]
         self._previous_action = state["previous_action"]
         self._joint_history = deque(state["joint_history"], maxlen=self._JOINT_HISTORY_MAX_LEN)
-        self._TARGET_DIRECTION = state["target_direction"]
+        #self._TARGET_LINEAR_VELOCITY = state["target_linear_velocity"]
+        #self._TARGET_ANGULAR_VELOCITY = state["target_angular_velocity"]
     
     def _is_state_initialized(self, key: str):
         value = self._agent_state.get(key)
@@ -220,20 +224,20 @@ class SpotmicroEnv(gym.Env):
         return tuple(base_ori)
     
     @property
-    def agent_linear_velocity(self) -> tuple[float, float, float]:
+    def agent_linear_velocity(self) -> np.ndarray:
         """
         Returns the vector representign the linear velocity of the agent, in the form (vx, vy, vz)
         """
         lin_vel = self._is_state_initialized("linear_velocity")
-        return tuple(lin_vel)
+        return np.array(lin_vel)
     
     @property
-    def agent_angular_velocity(self) -> tuple[float, float, float]:
+    def agent_angular_velocity(self) -> np.ndarray:
         """
         Returns the vector representing the angular velocity of the agent, in the form (wx, wy, wz)
         """
         ang_vel = self._is_state_initialized("angular_velocity")
-        return tuple(ang_vel)
+        return np.array(ang_vel)
     
     @property
     def agent_ground_feet_contacts(self) -> set:
@@ -259,21 +263,38 @@ class SpotmicroEnv(gym.Env):
         return (pos, vel)
     
     @property
-    def target_direction(self) -> np.ndarray:
+    def target_lin_velocity(self) -> np.ndarray:
         """
         Get the current target direction for locomotion (unit vector).
         """
-        return self._TARGET_DIRECTION
+        return self._TARGET_LINEAR_VELOCITY
     
-    @target_direction.setter
-    def target_direction(self, direction: tuple[float, float, float]) -> None:
+    @target_lin_velocity.setter
+    def target_linear_velocity(self, lin_velocity: tuple[float, float, float]) -> None:
         """
         Set a new target direction for locomotion. Should be a normalized 3D vector
         """
-        norm = np.linalg.norm(direction)
+        norm = np.linalg.norm(lin_velocity)
         if norm == 0:
             raise ValueError("Target direction cannot be a zero vector")
-        self._TARGET_DIRECTION = np.array(np.array(direction) / norm)
+        self._TARGET_LINEAR_VELOCITY = np.array(np.array(lin_velocity) / norm)
+    
+    @property
+    def target_ang_velocity(self) -> np.ndarray:
+        """
+        Get the current target direction for locomotion (unit vector).
+        """
+        return self._TARGET_ANGULAR_VELOCITY
+    
+    @target_ang_velocity.setter
+    def target_angular_velocity(self, ang_velocity: tuple[float, float, float]) -> None:
+        """
+        Set a new target direction for locomotion. Should be a normalized 3D vector
+        """
+        norm = np.linalg.norm(ang_velocity)
+        if norm == 0:
+            raise ValueError("Target direction cannot be a zero vector")
+        self._TARGET_LINEAR_VELOCITY = np.array(np.array(ang_velocity) / norm)
     
     @property
     def num_steps(self) -> int:
@@ -290,6 +311,12 @@ class SpotmicroEnv(gym.Env):
         if self._motor_joints is None:
             raise ValueError("List of movable joint is not initialized yet. Yous hould call .reset() at least once before trying to access this attribute")
         return self._motor_joints
+    
+    @property 
+    def homing_positions(self) -> tuple:
+        if self._homing_positions is None:
+            raise ValueError("List of homing positions is not initialzied yet. Call reset() at least once")
+        return self._homing_positions
 
     def get_custom_state(self, key: str):
         """
@@ -382,6 +409,7 @@ class SpotmicroEnv(gym.Env):
         # Builld the list of movable joints and assign all attributes
         if self._motor_joints is None:
             motor_joints = []
+            homing_positions = []
             for i in range(pybullet.getNumJoints(self._robot_id)):
                 joint_info = pybullet.getJointInfo(self._robot_id, i)
                 joint_link_id = joint_info[0]
@@ -391,9 +419,12 @@ class SpotmicroEnv(gym.Env):
 
                 if joint_type == pybullet.JOINT_REVOLUTE:
                     joint_category = joint_name.split("_")[-1]
-                    motor_joints.append(Joint(joint_name, i, joint_link_id, joint_category, joint_limits, self.config))
+                    joint = Joint(joint_name, i, joint_link_id, joint_category, joint_limits, self.config)
+                    motor_joints.append(joint)
+                    homing_positions.append(joint.homing_position)
 
             self._motor_joints = tuple(motor_joints) # Made immutable to avoid problems
+            self._homing_positions = tuple(homing_positions)
 
         # Setting homing position and friction
         for joint in self._motor_joints:

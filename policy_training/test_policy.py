@@ -16,7 +16,7 @@ obs, _ = env.reset()
 
 # Load your trained model
 #model = PPO.load(f"policies/ppo_{run}")  # or path to your .zip
-model = PPO.load(f"policies/{run}_checkpoints/ppo_{run}_12001536_steps.zip")
+model = PPO.load(f"policies/{run}_checkpoints/ppo_{run}_15001536_steps.zip")
 print(f"num steps: {env.num_steps}")
 
 # Run rollout
