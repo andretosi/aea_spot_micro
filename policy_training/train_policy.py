@@ -4,8 +4,8 @@ from stable_baselines3.common.env_checker import check_env
 from walking_reward_function import reward_function, RewardState
 from stable_baselines3.common.callbacks import CheckpointCallback
 
-TOTAL_STEPS = 300_000
-run = "tilt5.3M"
+TOTAL_STEPS = 10_000_000
+run = "walk10M-0"
 
 def clipped_linear_schedule(initial_value, min_value=1e-5):
     def schedule(progress_remaining):
@@ -31,7 +31,7 @@ model = PPO(
     env, 
     verbose = 1, 
     learning_rate=clipped_linear_schedule(3e-4),
-    ent_coef=0.001, #previously 0.0015
+    ent_coef=0.002, #previously 0.0015
     clip_range=0.1,
     tensorboard_log="./logs",
     )
