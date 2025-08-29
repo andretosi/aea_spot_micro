@@ -21,6 +21,7 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     positions, _ = env.agent_joint_state
     roll, pitch, _ = pybullet.getEulerFromQuaternion(env.agent_base_orientation)
 
+    # Errors
     lin_vel_error = np.linalg.norm(env.target_lin_velocity - env.agent_linear_velocity) ** 2
     ang_vel_error = np.linalg.norm(env.target_ang_velocity - env.agent_angular_velocity) ** 2
     deviation_penalty = np.linalg.norm(positions - np.array(env.homing_positions)) ** 2
@@ -29,14 +30,17 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     vertical_velocity_sq =  env.agent_linear_velocity[2] ** 2
     stabilization_penalty = roll ** 2 + pitch ** 2
 
+    # Derived penalties
+    lin_vel_reward = max(1 - 1.75 * lin_vel_error, -1.0)
+
     # === Final Reward ===
     reward_dict = {
-        "linear_vel_penalty": -2 * lin_vel_error,
-        "height_penalty": -2 * height_penalty,
-        "stabilization_penalty": -1.5 * stabilization_penalty,
-        "vertical_velocity_penalty": -1.5 * vertical_velocity_sq,
+        "linear_vel_reward": 10 * lin_vel_reward,
+        "height_penalty": -3 * min(height_penalty, 1.0),
+        "stabilization_penalty": -3 * min(stabilization_penalty, 1.0),
+        #"vertical_velocity_penalty": -1.5 * vertical_velocity_sq,
         "angular_vel_penalty": -1 * ang_vel_error,
-        "action_rate_penalty": -1 * action_rate,
+        #"action_rate_penalty": -1 * action_rate,
         "deviation_penalty": -0.5 * deviation_penalty,
     }
     total_reward = sum(reward_dict.values())

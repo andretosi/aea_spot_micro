@@ -5,7 +5,7 @@ from walking_reward_function import reward_function, RewardState
 from stable_baselines3.common.callbacks import CheckpointCallback
 
 TOTAL_STEPS = 9_000_000
-run = "walking17M-2"
+run = "walking17M-0"
 base = "tilting8M"
 
 
@@ -31,7 +31,7 @@ check_env(env, warn=True) #optional
 
 model = PPO.load(f"policies/ppo_{base}")
 model.set_env(env)
-#model.tensorboard_log = "./logs"
+model.tensorboard_log = "./logs"
 model.learn(
     total_timesteps=TOTAL_STEPS,
     reset_num_timesteps=False,
