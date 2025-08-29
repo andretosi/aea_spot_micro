@@ -142,8 +142,6 @@ class SpotmicroEnv(gym.Env):
             "ground_feet_contacts": None
         }
 
-        self._custom_state = dict()
-
         #If the agents is in this state, we terminate the simulation. Should quantize the fact that it has fallen, maybe a threshold?
         self._target_state = {
             "min_height": self.config.min_height, #meters?
@@ -166,7 +164,6 @@ class SpotmicroEnv(gym.Env):
                 warnings.warn(f"File '{self._dest_save}' already exists and will be overwritten.", UserWarning)
             if not self._dest_save.endswith(".pkl"):
                 raise ValueError("Expected a .pkl file for environment state save destination")
-            
 
         self._src_file = src_save_file
         if self._src_file is not None:
@@ -318,21 +315,6 @@ class SpotmicroEnv(gym.Env):
             raise ValueError("List of homing positions is not initialzied yet. Call reset() at least once")
         return self._homing_positions
 
-    def get_custom_state(self, key: str):
-        """
-        Returns the value corresponding to the given key inside a dictionary of custom variables.
-        """
-        if key not in self._custom_state.keys():
-            raise ValueError(f"No value was initialized for the given key ({key})")
-        return self._custom_state[key]
-    
-    
-    def set_custom_state(self, key: str, value):
-        """
-        If given a value, it instead changes the value of the given key to the provided value
-        """
-        self._custom_state[key] = value
-
     def close(self):
         """
         Method exposed and used by SB3.
@@ -436,6 +418,8 @@ class SpotmicroEnv(gym.Env):
                     lateralFriction=1.5,
                     physicsClientId=self.physics_client
                 )
+        
+        self.reward_state.populate(self)
 
         #this is just to let the physics stabilize? -> might need to remove this loop
         for _ in range(10):
@@ -623,7 +607,7 @@ class SpotmicroEnv(gym.Env):
     def _joint_positions_norm(self):
         pos, _ = self._get_joint_states()
         pos_norm = []
-        for i, joint in enumerate(self.motor_joints):
+        for i, joint in enumerate(self._motor_joints):
             pos_norm.append(((2 * (pos[i] - joint.limits[0])) / (joint.limits[1] - joint.limits[0])) - 1) # Normalize ang position with respect to max range of motion
         return pos_norm
     
