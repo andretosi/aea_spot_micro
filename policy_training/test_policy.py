@@ -4,7 +4,7 @@ from stable_baselines3 import PPO
 from SpotmicroEnv import SpotmicroEnv
 from walking_reward_function import reward_function, RewardState
 
-run = "shuffle"
+run = "walk27M-0"
 
 env = SpotmicroEnv(
     use_gui=True, 

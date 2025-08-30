@@ -520,6 +520,28 @@ class SpotmicroEnv(gym.Env):
             except Exception as e:
                 print(f"[Logging Error] Could not log {key}: {e}")
     
+    def _create_terrain(self, randomize=False):
+        if hasattr(self, "terrain_id"):
+            pybullet.removeBody(self.terrain_id)
+
+        if randomize:
+            num_rows, num_cols = 64, 64
+            heightfield_data = np.random.uniform(low=-0.02, high=0.02, size=(num_rows * num_cols))
+
+            shape = p.createCollisionShape(
+                shapeType=p.GEOM_HEIGHTFIELD,
+                meshScale=[0.1, 0.1, 1.0],
+                heightfieldTextureScaling=num_rows,
+                heightfieldData=heightfield_data.tolist(),
+                numHeightfieldRows=num_rows,
+                numHeightfieldColumns=num_cols
+            )
+            self.terrain_id = pybullet.createMultiBody(0, shape)
+            p.resetBasePositionAndOrientation(self.terrain_id, [0,0,0], [0,0,0,1])
+        else:
+            self.terrain_id = pybullet.loadURDF("plane.urdf")
+
+    
     def _step_simulation(self, action: np.ndarray) -> np.ndarray:
         """
         Private method that calls the API to execute the given action in PyBullet.
