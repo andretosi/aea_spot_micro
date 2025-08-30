@@ -175,6 +175,70 @@ class SpotmicroEnv(gym.Env):
                 raise ValueError("Expected a .pkl file for environment state save source")
             
             self.load_state()
+    
+        #Initialize pybullet
+        if self.physics_client is None:
+            self.physics_client = pybullet.connect(pybullet.GUI if self.use_gui else pybullet.DIRECT)
+
+        pybullet.resetSimulation(physicsClientId=self.physics_client)
+        pybullet.setGravity(0, 0, -9.81, physicsClientId=self.physics_client)
+        pybullet.setTimeStep(1/self._SIM_FREQUENCY, physicsClientId=self.physics_client)
+        pybullet.setTimeStep(1/self._SIM_FREQUENCY, physicsClientId=self.physics_client)
+
+        #load robot URDF here
+        pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
+        #self._plane_id = pybullet.loadURDF(
+        #    "plane.urdf", 
+        #    basePosition = [0,0,0],
+        #    baseOrientation = pybullet.getQuaternionFromEuler([0,0,0]),
+        #    physicsClientId=self.physics_client
+        #)
+
+        self._create_terrain()
+
+        pybullet.changeDynamics(
+            bodyUniqueId=self._plane_id,
+            linkIndex=-1,
+            lateralFriction=1.0,           # <- good default
+            spinningFriction=0.0,
+            rollingFriction=0.0,
+            restitution=0.0,
+            physicsClientId=self.physics_client
+        )
+        
+        self._agent_state["base_position"] = (0.0 , 0.0, self.config.spawn_height) #Height set specifically through trial and error
+        self._agent_state["base_orientation"] = pybullet.getQuaternionFromEuler([0, self.config.homing_pitch, np.pi])
+        self._agent_state["linear_velocity"] = np.zeros(3)
+        self._agent_state["angular_velocity"] = np.zeros(3)
+        self._agent_state["ground_feet_contacts"] = set()
+
+        self._robot_id = pybullet.loadURDF(
+            "spotmicroai.urdf",
+            basePosition = self._agent_state["base_position"],
+            baseOrientation = self._agent_state["base_orientation"],
+            physicsClientId = self.physics_client
+        )
+
+        # Builld the list of movable joints and assign all attributes
+        if self._motor_joints is None:
+            motor_joints = []
+            homing_positions = []
+            for i in range(pybullet.getNumJoints(self._robot_id)):
+                joint_info = pybullet.getJointInfo(self._robot_id, i)
+                joint_link_id = joint_info[0]
+                joint_name = joint_info[1].decode("utf-8")
+                joint_type = joint_info[2]
+                joint_limits = (joint_info[8], joint_info[9])
+
+                if joint_type == pybullet.JOINT_REVOLUTE:
+                    joint_category = joint_name.split("_")[-1]
+                    joint = Joint(joint_name, i, joint_link_id, joint_category, joint_limits, self.config)
+                    motor_joints.append(joint)
+                    homing_positions.append(joint.homing_position)
+
+            self._motor_joints = tuple(motor_joints) # Made immutable to avoid problems
+            self._homing_positions = tuple(homing_positions)
+
             
     def save_state(self):
         state = {
@@ -353,61 +417,14 @@ class SpotmicroEnv(gym.Env):
         for _ in range(5):
             self._joint_history.append(dummy_joint_state)
 
-        #Initialize pybullet
-        if self.physics_client is None:
-            self.physics_client = pybullet.connect(pybullet.GUI if self.use_gui else pybullet.DIRECT)
-
-        pybullet.resetSimulation(physicsClientId=self.physics_client)
-        pybullet.setGravity(0, 0, -9.81, physicsClientId=self.physics_client)
-        pybullet.setTimeStep(1/self._SIM_FREQUENCY, physicsClientId=self.physics_client)
-        pybullet.setTimeStep(1/self._SIM_FREQUENCY, physicsClientId=self.physics_client)
-
-        #load robot URDF here
-        pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
-        self._plane_id = pybullet.loadURDF(
-            "plane.urdf", 
-            basePosition = [0,0,0],
-            baseOrientation = pybullet.getQuaternionFromEuler([0,0,0]),
-            physicsClientId=self.physics_client
+        pybullet.resetBasePositionAndOrientation(
+        self._robot_id,
+        self._agent_state["base_position"],
+        self._agent_state["base_orientation"],
+        physicsClientId=self.physics_client
         )
-
-        pybullet.changeDynamics(
-            bodyUniqueId=self._plane_id,
-            linkIndex=-1,
-            lateralFriction=1.0,           # <- good default
-            spinningFriction=0.0,
-            rollingFriction=0.0,
-            restitution=0.0,
-            physicsClientId=self.physics_client
-        )
+        pybullet.resetBaseVelocity(self._robot_id, [0,0,0], [0,0,0])
         
-        self._robot_id = pybullet.loadURDF(
-            "spotmicroai.urdf",
-            basePosition = self._agent_state["base_position"],
-            baseOrientation = self._agent_state["base_orientation"],
-            physicsClientId = self.physics_client
-        )
-
-        # Builld the list of movable joints and assign all attributes
-        if self._motor_joints is None:
-            motor_joints = []
-            homing_positions = []
-            for i in range(pybullet.getNumJoints(self._robot_id)):
-                joint_info = pybullet.getJointInfo(self._robot_id, i)
-                joint_link_id = joint_info[0]
-                joint_name = joint_info[1].decode("utf-8")
-                joint_type = joint_info[2]
-                joint_limits = (joint_info[8], joint_info[9])
-
-                if joint_type == pybullet.JOINT_REVOLUTE:
-                    joint_category = joint_name.split("_")[-1]
-                    joint = Joint(joint_name, i, joint_link_id, joint_category, joint_limits, self.config)
-                    motor_joints.append(joint)
-                    homing_positions.append(joint.homing_position)
-
-            self._motor_joints = tuple(motor_joints) # Made immutable to avoid problems
-            self._homing_positions = tuple(homing_positions)
-
         # Setting homing position and friction
         for joint in self._motor_joints:
             pybullet.resetJointState(self._robot_id, joint.id, joint.homing_position)
@@ -520,26 +537,23 @@ class SpotmicroEnv(gym.Env):
             except Exception as e:
                 print(f"[Logging Error] Could not log {key}: {e}")
     
-    def _create_terrain(self, randomize=False):
-        if hasattr(self, "terrain_id"):
-            pybullet.removeBody(self.terrain_id)
+    def _create_terrain(self):
+        # Example: heightfield
+        num_rows, num_cols = 256, 256
+        heightfield_data = np.random.uniform(self.config.min_height_bumps, self.config.max_height_bumps, size=num_rows * num_cols)
 
-        if randomize:
-            num_rows, num_cols = 64, 64
-            heightfield_data = np.random.uniform(low=-0.02, high=0.02, size=(num_rows * num_cols))
+        terrain_shape = pybullet.createCollisionShape(
+            shapeType=pybullet.GEOM_HEIGHTFIELD,
+            meshScale=[0.05, 0.05, 1.0],
+            heightfieldTextureScaling=(num_rows - 1) / 2,
+            heightfieldData=heightfield_data.tolist(),
+            numHeightfieldRows=num_rows,
+            numHeightfieldColumns=num_cols,
+            physicsClientId=self.physics_client
+        )
 
-            shape = p.createCollisionShape(
-                shapeType=p.GEOM_HEIGHTFIELD,
-                meshScale=[0.1, 0.1, 1.0],
-                heightfieldTextureScaling=num_rows,
-                heightfieldData=heightfield_data.tolist(),
-                numHeightfieldRows=num_rows,
-                numHeightfieldColumns=num_cols
-            )
-            self.terrain_id = pybullet.createMultiBody(0, shape)
-            p.resetBasePositionAndOrientation(self.terrain_id, [0,0,0], [0,0,0,1])
-        else:
-            self.terrain_id = pybullet.loadURDF("plane.urdf")
+        self._plane_id = pybullet.createMultiBody(0, terrain_shape)
+        return self._plane_id
 
     
     def _step_simulation(self, action: np.ndarray) -> np.ndarray:

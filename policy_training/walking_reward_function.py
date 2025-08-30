@@ -28,17 +28,31 @@ def fade_out(current_step, start, scale=2.0):
         return 1.0
     return np.exp(-scale * (current_step - start) / 1_000_000)
 
-def foot_clearance_reward(clearances, clearance_threshold=0.02):
+def foot_clearance_reward(env, clearance_threshold=0.02):
     """
-    Compute a structured clearance reward:
-    - +1 if exactly one foot has clearance
-    - +0.5 if two feet have clearance
-    - -1 if three or more feet have clearance
+    Compute structured clearance reward relative to terrain height:
+    - +1.0 if exactly one foot clears threshold
+    - +0.25 if two feet clear
+    - -0.5 if three or more clear
     """
     clearance_counts = 0
-    for clearance in clearances:
-        if clearance > clearance_threshold: #NEED TO ADJUST FOR ROUGH TERRAIN WITH BUMPS
-            clearance_counts += 1
+
+    for foot_id in env.reward_state.foot_ids:
+        # get foot world position
+        foot_pos = pybullet.getLinkState(env._robot_id, foot_id)[0]
+        foot_x, foot_y, foot_z = foot_pos
+
+        # ray test to find ground under foot
+        ray_start = [foot_x, foot_y, foot_z + 0.2]
+        ray_end   = [foot_x, foot_y, foot_z - 0.3]
+        hit = pybullet.rayTest(ray_start, ray_end, physicsClientId=env.physics_client)[0]
+
+        if hit[0] == env._plane_id:   # hit terrain
+            terrain_height = hit[3][2]
+            clearance = foot_z - terrain_height
+
+            if clearance > clearance_threshold:
+                clearance_counts += 1
 
     if clearance_counts == 1:
         return 1.0
@@ -49,12 +63,12 @@ def foot_clearance_reward(clearances, clearance_threshold=0.02):
     else:
         return 0.0
 
+
 def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]:
 
     positions, _ = env.agent_joint_state
     roll, pitch, _ = pybullet.getEulerFromQuaternion(env.agent_base_orientation)
     foot_positions = [pybullet.getLinkState(env._robot_id, fid)[0] for fid in env.reward_state.foot_ids]
-    clearances = [pos[2] for pos in foot_positions]
 
     # Errors
     lin_vel_error = np.linalg.norm(env.target_lin_velocity - env.agent_linear_velocity) ** 2
@@ -64,7 +78,7 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     action_rate = np.linalg.norm(action - env.agent_previous_action) ** 2
     vertical_velocity_sq =  env.agent_linear_velocity[2] ** 2
     stabilization_penalty = roll ** 2 + pitch ** 2
-    clearance_reward = foot_clearance_reward(clearances)
+    clearance_reward = foot_clearance_reward(env)
 
     # Derived penalties
     lin_vel_reward = max(1 - 1.75 * lin_vel_error, -1.0)
@@ -77,7 +91,7 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
         "stabilization_penalty": -3 * min(stabilization_penalty, 1.0),
         #"vertical_velocity_penalty": -1.5 * vertical_velocity_sq,
         "angular_vel_penalty": -1 * ang_vel_error,
-        #"action_rate_penalty": -1 * action_rate,
+        "action_rate_penalty": -0.5 * action_rate,
         "deviation_penalty": -0.5 * deviation_penalty,
     }
     total_reward = sum(reward_dict.values())
