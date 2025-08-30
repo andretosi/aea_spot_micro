@@ -538,9 +538,15 @@ class SpotmicroEnv(gym.Env):
                 print(f"[Logging Error] Could not log {key}: {e}")
     
     def _create_terrain(self):
-        # Example: heightfield
         num_rows, num_cols = 256, 256
-        heightfield_data = np.random.uniform(self.config.min_height_bumps, self.config.max_height_bumps, size=num_rows * num_cols)
+        x = np.linspace(0, 4 * np.pi, num_rows)
+        y = np.linspace(0, 4 * np.pi, num_cols)
+        X, Y = np.meshgrid(x, y)
+
+        # Smooth sinusoidal hills
+        heightfield_data = (
+            np.sin(X) * np.cos(Y) * 0.05   # amplitude scaling
+        ).reshape(-1)
 
         terrain_shape = pybullet.createCollisionShape(
             shapeType=pybullet.GEOM_HEIGHTFIELD,
@@ -554,6 +560,7 @@ class SpotmicroEnv(gym.Env):
 
         self._plane_id = pybullet.createMultiBody(0, terrain_shape)
         return self._plane_id
+
 
     
     def _step_simulation(self, action: np.ndarray) -> np.ndarray:
