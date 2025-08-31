@@ -26,10 +26,10 @@ foot_power: 2.3
 
 # <-- ENVIRONMENT PARAMETERS -->
 target_height: 0.220
-spawn_height: 0.230
+spawn_height: 0.235
 
 #Target states
-min_height: 0.16
+min_height: 0.15
 max_height: 0.4
 max_pitchroll: 0.96 #Radians = 55 degrees
 

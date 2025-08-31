@@ -4,6 +4,8 @@ import gymnasium as gym
 from collections import deque
 import matplotlib.pyplot as plt
 import inspect, os, pickle, warnings, yaml
+from scipy.ndimage import gaussian_filter
+
 
 class SpotConfig:
     def __init__(self, filename: str):
@@ -537,29 +539,63 @@ class SpotmicroEnv(gym.Env):
             except Exception as e:
                 print(f"[Logging Error] Could not log {key}: {e}")
     
+    def _gen_pothole_heightfield(self, rows=256, cols=256, cell=0.05, n_pits=60, pit_radius=0.10, pit_depth=0.03, smooth_sigma_cells=1.5):
+
+        H = np.zeros((rows, cols), dtype=np.float32)
+
+        # grid coords in meters
+        xs = np.arange(cols) * cell
+        ys = np.arange(rows) * cell
+        X, Y = np.meshgrid(xs, ys)
+
+        rng = np.random.default_rng(42)
+        cx = rng.uniform(xs.min()+pit_radius, xs.max()-pit_radius, size=n_pits)
+        cy = rng.uniform(ys.min()+pit_radius, ys.max()-pit_radius, size=n_pits)
+
+        r2 = pit_radius**2
+        for x0, y0 in zip(cx, cy):
+            # cone-ish bowl using quadratic falloff; clip at radius
+            d2 = (X - x0)**2 + (Y - y0)**2
+            mask = d2 < r2
+            # normalized (0 at rim → 1 at center)
+            w = 1.0 - np.sqrt(d2[mask]) / pit_radius
+            H[mask] -= pit_depth * (w**2)   # smooth bowl
+
+        if smooth_sigma_cells and smooth_sigma_cells > 0:
+            H = gaussian_filter(H, sigma=smooth_sigma_cells)
+
+        return H
+        
     def _create_terrain(self):
-        num_rows, num_cols = 256, 256
-        x = np.linspace(0, 4 * np.pi, num_rows)
-        y = np.linspace(0, 4 * np.pi, num_cols)
-        X, Y = np.meshgrid(x, y)
+        rows, cols = 256, 256
+        cell = 0.05  # 5 cm per cell → ~12.8 m square
 
-        # Smooth sinusoidal hills
-        heightfield_data = (
-            np.sin(X) * np.cos(Y) * 0.05   # amplitude scaling
-        ).reshape(-1)
+        # --- base: mild sine ridges orthogonal to heading (+x) ---
+        y = np.linspace(0, cols*cell, cols)
+        Y = np.tile(y, (rows, 1))
+        ridges = 0.02 * np.sin(2*np.pi * Y / 0.20)  # 2cm amp, 20cm wavelength
 
-        terrain_shape = pybullet.createCollisionShape(
+        # --- add sparse potholes that enforce lift ---
+        H = self._gen_pothole_heightfield(rows, cols, cell, 50)
+        H += ridges
+
+        # clip to safe range from config (optional)
+        H = np.clip(H, self.config.min_height_bumps, self.config.max_height_bumps)
+
+        heightfield_data = H.flatten().tolist()
+
+        shape = pybullet.createCollisionShape(
             shapeType=pybullet.GEOM_HEIGHTFIELD,
-            meshScale=[0.05, 0.05, 1.0],
-            heightfieldTextureScaling=(num_rows - 1) / 2,
-            heightfieldData=heightfield_data.tolist(),
-            numHeightfieldRows=num_rows,
-            numHeightfieldColumns=num_cols,
+            meshScale=[cell, cell, 1.0],
+            heightfieldTextureScaling=(rows - 1) / 2,
+            heightfieldData=heightfield_data,
+            numHeightfieldRows=rows,
+            numHeightfieldColumns=cols,
             physicsClientId=self.physics_client
         )
-
-        self._plane_id = pybullet.createMultiBody(0, terrain_shape)
+        self._plane_id = pybullet.createMultiBody(0, shape)
         return self._plane_id
+
 
 
     
