@@ -573,7 +573,7 @@ class SpotmicroEnv(gym.Env):
         # --- base: mild sine ridges orthogonal to heading (+x) ---
         y = np.linspace(0, cols*cell, cols)
         Y = np.tile(y, (rows, 1))
-        ridges = 0.02 * np.sin(2*np.pi * Y / 0.20)  # 2cm amp, 20cm wavelength
+        ridges = 0.02 * np.sin(2*np.pi * Y / 0.30)  # 2cm amp, 20cm wavelength
 
         # --- add sparse potholes that enforce lift ---
         H = self._gen_pothole_heightfield(rows, cols, cell, 50)
