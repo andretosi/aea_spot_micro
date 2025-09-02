@@ -1,0 +1,7 @@
+#Tilting plane parameters
+rotation_frequency: 0.04
+max_tilt_angle: 0.1745 #= 10 degrees
+
+#Terraforming parameters
+min_height_bumps: -0.00
+max_height_bumps: 0.02

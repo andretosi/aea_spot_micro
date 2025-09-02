@@ -11,8 +11,8 @@ class RewardState:
     def populate(self, env: SpotmicroEnv):
         # Init foot IDs once
         foot_ids = []
-        for i in range(pybullet.getNumJoints(env._robot_id)):
-            joint_info = pybullet.getJointInfo(env._robot_id, i)
+        for i in range(pybullet.getNumJoints(env._agent.agent_id)):
+            joint_info = pybullet.getJointInfo(env._agent.agent_id, i)
             link_name = joint_info[12].decode("utf-8")
             if "foot" in link_name.lower():
                 foot_ids.append(i)
@@ -39,7 +39,7 @@ def foot_clearance_reward(env, clearance_threshold=0.02):
 
     for foot_id in env.reward_state.foot_ids:
         # get foot world position
-        foot_pos = pybullet.getLinkState(env._robot_id, foot_id)[0]
+        foot_pos = pybullet.getLinkState(env.agent.agent_id, foot_id)[0]
         foot_x, foot_y, foot_z = foot_pos
 
         # ray test to find ground under foot
@@ -66,17 +66,15 @@ def foot_clearance_reward(env, clearance_threshold=0.02):
 
 def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]:
 
-    positions, _ = env.agent_joint_state
-    roll, pitch, _ = pybullet.getEulerFromQuaternion(env.agent_base_orientation)
-    foot_positions = [pybullet.getLinkState(env._robot_id, fid)[0] for fid in env.reward_state.foot_ids]
+    roll, pitch, _ = env.agent.state.roll_pitch_yaw
 
     # Errors
-    lin_vel_error = np.linalg.norm(env.target_lin_velocity - env.agent_linear_velocity) ** 2
-    ang_vel_error = np.linalg.norm(env.target_ang_velocity - env.agent_angular_velocity) ** 2
-    deviation_penalty = np.linalg.norm(positions - np.array(env.homing_positions)) ** 2
-    height_penalty = (env.agent_base_position[2] - env.config.target_height) ** 2
-    action_rate = np.linalg.norm(action - env.agent_previous_action) ** 2
-    vertical_velocity_sq =  env.agent_linear_velocity[2] ** 2
+    lin_vel_error = np.linalg.norm(env.target_lin_velocity - env.agent.state.linear_velocity) ** 2
+    ang_vel_error = np.linalg.norm(env.target_ang_velocity - env.agent.state.angular_velocity) ** 2
+    deviation_penalty = np.linalg.norm(env.agent.state.joint_positions - env.agent.homing_positions) ** 2
+    height_penalty = (env.agent.state.base_position[2] - env.config.target_height) ** 2
+    action_rate = np.linalg.norm(action - env.agent.previous_action) ** 2
+    vertical_velocity_sq =  env.agent.state.linear_velocity[2] ** 2
     stabilization_penalty = roll ** 2 + pitch ** 2
     clearance_reward = foot_clearance_reward(env)
 

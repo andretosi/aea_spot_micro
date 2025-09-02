@@ -3,96 +3,33 @@ import numpy as np
 import gymnasium as gym
 from collections import deque
 import matplotlib.pyplot as plt
-import inspect, os, pickle, warnings, yaml
+import inspect, os, pickle, warnings
 from scipy.ndimage import gaussian_filter
-
-
-class SpotConfig:
-    def __init__(self, filename: str):
-        with open(filename, "r") as f:
-            cfg_dict = yaml.safe_load(f)
-
-        for key, value in cfg_dict.items():
-            setattr(self, key, value)
-
-class Joint:
-    def __init__(self, name: str, joint_id: int, joint_link_idx: int, joint_type: str, limits: tuple, config: SpotConfig):
-        self.name = name
-        self.leftright = name.split("_")[1]
-        self.frontback = name.split("_")[0]
-        self.id = joint_id
-        self.link_id = joint_link_idx
-        if limits[0] >= limits[1]:
-            raise ValueError(f"Joint {self.name} has invalid limits: {limits}")
-        self.limits = limits
-        self.mid = 0.5 * (self.limits[0] + self.limits[1])
-        self.type = joint_type # shoulder, leg, foot
-        self.effort = 0
-        self.max_torque = 6
-
-        if self.type == "shoulder": # Range: -0.548, 0.548
-            self.homing_position = config.left_shoulder_hp if self.leftright == "left" else config.right_shoulder_hp
-            self.gain =  config.shoulder_gain
-            self.deadzone = config.shoulder_deadzone
-            self.power = config.shoulder_power
-    
-        elif self.type == "leg": # Range: -2.66, 1.5488
-            self.homing_position = config.front_legs_hp if self.frontback == "front" else config.rear_legs_hp
-            self.gain = config.leg_gain
-            self.deadzone = config.leg_deadzone
-            self.power = config.leg_power
-
-        elif self.type == "foot": # Ragnge: -0.1, 2.59
-            self.homing_position = config.front_feet_hp if self.frontback == "front" else config.rear_feet_hp
-            self.gain = config.foot_gain
-            self.deadzone = config.foot_deadzone
-            self.power = config.foot_power
-
-    def from_action_to_position(self, action: float) -> float:
-        """
-        Map policy action a∈[-1,1] → joint position within [low, high],
-        centered at homing, with:
-        - deadzone around 0 to kill micro-jitter,
-        - |a|^power to compress small actions (slope → 0 at 0 for power>1),
-        - tanh(g*·)/tanh(g) to softly saturate near limits,
-        - asymmetric reach when homing ≠ mid.
-        """
-        a = float(np.clip(action, -1.0, 1.0))
-        low, high = self.limits
-        h = self.homing_position
-
-        # --- Deadzone (and rescale outside so ±1 still hits limits) ---
-        if abs(a) < self.deadzone:
-            return float(np.clip(h, low, high))
-        a_eff = np.sign(a) * (abs(a) - self.deadzone) / (1.0 - self.deadzone)  # still in [-1,1]
-
-        # --- Asymmetric distances from homing to limits ---
-        r_plus  = max(1e-6, high - h)  # positive direction reach
-        r_minus = max(1e-6, h - low)   # negative direction reach
-
-        # --- Compress small actions, then softly saturate ---
-        # power > 1 => derivative at 0 is 0 (very low sensitivity near home)
-        mag = abs(a_eff) ** self.power                      # in [0,1]
-        squash = np.tanh(self.gain * mag) / np.tanh(self.gain)   # in [0,1], saturates smoothly
-
-        # --- Apply towards the correct side with asymmetric reach ---
-        if a_eff >= 0.0:
-            target = h + r_plus * squash
-        else:
-            target = h - r_minus * squash
-
-        return float(np.clip(target, low, high))
+from Config import Config
+from Agent import Agent
 
 class SpotmicroEnv(gym.Env):
-    def __init__(self, config="config.yaml", use_gui=False, reward_fn=None, reward_state=None, dest_save_file=None, src_save_file=None, writer=None):
+    def __init__(self, envConfig="envConfig.yaml", agentConfig="agentConfig.yaml", terrainConfig="terrainConfig.yaml", use_gui=False, reward_fn=None, reward_state=None, dest_save_file=None, src_save_file=None, writer=None):
         super().__init__()
 
-        if not isinstance(config, str):
+        if not isinstance(envConfig, str):
             raise TypeError("config must be a string")
-        if not os.path.isfile(config):
-            raise FileNotFoundError(f"File {config} does not exist")
+        if not os.path.isfile(agentConfig):
+            raise FileNotFoundError(f"File {agentConfig} does not exist")
+        if not os.path.isfile(terrainConfig):
+            raise FileNotFoundError(f"File {terrainConfig} does not exist")
 
-        self.config = SpotConfig(config)
+        self.config = Config(envConfig)
+        self.agent_config = Config(agentConfig)
+        self.terrain_config = Config(terrainConfig)
+
+        self._plane_id = None
+        self.physics_client = None
+        self.use_gui = use_gui
+        self.np_random = None
+        self.reward_state = reward_state
+        self._episode_reward_info = None
+        self.writer = writer
 
         self._OBS_SPACE_SIZE = 94
         self._ACT_SPACE_SIZE = 12
@@ -107,21 +44,6 @@ class SpotmicroEnv(gym.Env):
         self._episode_step_counter = 0
         self._total_steps_counter = 0
 
-        self._robot_id = None
-        self._plane_id = None
-        self._motor_joints = None
-        self._homing_positions = None
-        self._joint_history = deque(maxlen=self._JOINT_HISTORY_MAX_LEN)
-        self._previous_action = np.zeros(self._ACT_SPACE_SIZE, dtype=np.float32)
-        self.physics_client = None
-        self.use_gui = use_gui
-        self.np_random = None
-
-
-        self.reward_state = reward_state
-        self._episode_reward_info = None
-        self.writer = writer
-
         #Declaration of observation and action spaces
         self.observation_space = gym.spaces.Box(
             low = -np.inf, 
@@ -135,14 +57,6 @@ class SpotmicroEnv(gym.Env):
             shape = (self._ACT_SPACE_SIZE,),
             dtype = np.float32
         )
-
-        self._agent_state = {
-            "base_position": None,
-            "base_orientation": None,
-            "linear_velocity": None,
-            "angular_velocity": None,
-            "ground_feet_contacts": None
-        }
 
         #If the agents is in this state, we terminate the simulation. Should quantize the fact that it has fallen, maybe a threshold?
         self._target_state = {
@@ -167,16 +81,6 @@ class SpotmicroEnv(gym.Env):
             if not self._dest_save.endswith(".pkl"):
                 raise ValueError("Expected a .pkl file for environment state save destination")
 
-        self._src_file = src_save_file
-        if self._src_file is not None:
-            if not isinstance(self._src_file, str):
-                raise TypeError("Source file path must be a string.")
-            if not os.path.exists(self._src_file):
-                raise FileNotFoundError(f"No file found at {self._src_file}")
-            if not src_save_file.endswith(".pkl"):
-                raise ValueError("Expected a .pkl file for environment state save source")
-            
-            self.load_state()
     
         #Initialize pybullet
         if self.physics_client is None:
@@ -186,15 +90,7 @@ class SpotmicroEnv(gym.Env):
         pybullet.setGravity(0, 0, -9.81, physicsClientId=self.physics_client)
         pybullet.setTimeStep(1/self._SIM_FREQUENCY, physicsClientId=self.physics_client)
         pybullet.setTimeStep(1/self._SIM_FREQUENCY, physicsClientId=self.physics_client)
-
-        #load robot URDF here
         pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
-        #self._plane_id = pybullet.loadURDF(
-        #    "plane.urdf", 
-        #    basePosition = [0,0,0],
-        #    baseOrientation = pybullet.getQuaternionFromEuler([0,0,0]),
-        #    physicsClientId=self.physics_client
-        #)
 
         self._create_terrain()
 
@@ -208,45 +104,24 @@ class SpotmicroEnv(gym.Env):
             physicsClientId=self.physics_client
         )
         
-        self._agent_state["base_position"] = (0.0 , 0.0, self.config.spawn_height) #Height set specifically through trial and error
-        self._agent_state["base_orientation"] = pybullet.getQuaternionFromEuler([0, self.config.homing_pitch, np.pi])
-        self._agent_state["linear_velocity"] = np.zeros(3)
-        self._agent_state["angular_velocity"] = np.zeros(3)
-        self._agent_state["ground_feet_contacts"] = set()
+        self._agent = Agent(self.physics_client, self.agent_config, self._ACT_SPACE_SIZE)
 
-        self._robot_id = pybullet.loadURDF(
-            "spotmicroai.urdf",
-            basePosition = self._agent_state["base_position"],
-            baseOrientation = self._agent_state["base_orientation"],
-            physicsClientId = self.physics_client
-        )
-
-        # Builld the list of movable joints and assign all attributes
-        if self._motor_joints is None:
-            motor_joints = []
-            homing_positions = []
-            for i in range(pybullet.getNumJoints(self._robot_id)):
-                joint_info = pybullet.getJointInfo(self._robot_id, i)
-                joint_link_id = joint_info[0]
-                joint_name = joint_info[1].decode("utf-8")
-                joint_type = joint_info[2]
-                joint_limits = (joint_info[8], joint_info[9])
-
-                if joint_type == pybullet.JOINT_REVOLUTE:
-                    joint_category = joint_name.split("_")[-1]
-                    joint = Joint(joint_name, i, joint_link_id, joint_category, joint_limits, self.config)
-                    motor_joints.append(joint)
-                    homing_positions.append(joint.homing_position)
-
-            self._motor_joints = tuple(motor_joints) # Made immutable to avoid problems
-            self._homing_positions = tuple(homing_positions)
-
+        self._src_file = src_save_file
+        if self._src_file is not None:
+            if not isinstance(self._src_file, str):
+                raise TypeError("Source file path must be a string.")
+            if not os.path.exists(self._src_file):
+                raise FileNotFoundError(f"No file found at {self._src_file}")
+            if not src_save_file.endswith(".pkl"):
+                raise ValueError("Expected a .pkl file for environment state save source")
+            
+            self.load_state()
             
     def save_state(self):
         state = {
             "total_steps_counter": self._total_steps_counter,
-            "previous_action": self._previous_action,
-            "joint_history": list(self._joint_history),
+            "previous_action": self._agent.previous_action,
+            "joint_history": list(self._agent.joint_history),
             "target_linear_velocity": self._TARGET_LINEAR_VELOCITY,
             "target_angular_velocity": self._TARGET_ANGULAR_VELOCITY
         }
@@ -259,71 +134,10 @@ class SpotmicroEnv(gym.Env):
             state = pickle.load(f)
         
         self._total_steps_counter = state["total_steps_counter"]
-        self._previous_action = state["previous_action"]
-        self._joint_history = deque(state["joint_history"], maxlen=self._JOINT_HISTORY_MAX_LEN)
+        self._agent.previous_action = state["previous_action"]
+        self._agent.joint_history = deque(state["joint_history"], maxlen=self.agent_config.joint_history_maxlen)
         #self._TARGET_LINEAR_VELOCITY = state["target_linear_velocity"]
         #self._TARGET_ANGULAR_VELOCITY = state["target_angular_velocity"]
-    
-    def _is_state_initialized(self, key: str):
-        value = self._agent_state.get(key)
-        if value is None:
-            raise ValueError(f"'{key}' has not been initialized (is currently None)")
-        return value
-
-    @property
-    def agent_base_position(self) -> tuple[float, float, float]:
-        """
-        Returns the coordinates of the base of the agent in the form (x,y,z)
-        """
-        base_pos = self._is_state_initialized("base_position")
-        return tuple(base_pos)
-    
-    @property
-    def agent_base_orientation(self) -> tuple[float, float, float, float]:
-        """
-        Returns the quaternion representign the orientation of the base, in the form (x, y, z, w)
-        """
-        base_ori = self._is_state_initialized("base_orientation")
-        return tuple(base_ori)
-    
-    @property
-    def agent_linear_velocity(self) -> np.ndarray:
-        """
-        Returns the vector representign the linear velocity of the agent, in the form (vx, vy, vz)
-        """
-        lin_vel = self._is_state_initialized("linear_velocity")
-        return np.array(lin_vel)
-    
-    @property
-    def agent_angular_velocity(self) -> np.ndarray:
-        """
-        Returns the vector representing the angular velocity of the agent, in the form (wx, wy, wz)
-        """
-        ang_vel = self._is_state_initialized("angular_velocity")
-        return np.array(ang_vel)
-    
-    @property
-    def agent_ground_feet_contacts(self) -> set:
-        """
-        Returns a set of ids of the feet of the agent making contact with the ground
-        """
-        gf_contacts = self._is_state_initialized("ground_feet_contacts")
-        return gf_contacts
-
-    @property
-    def agent_previous_action(self) -> np.ndarray:
-        """
-        Returns the action taken by the agent in the previous step
-        """
-        return self._previous_action
-    
-    @property
-    def agent_joint_state(self) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Returns a tuple of two arrays: the first contains the positions of each joint, the second their velocities
-        """
-        pos, vel = self._get_joint_states()
-        return (pos, vel)
     
     @property
     def target_lin_velocity(self) -> np.ndarray:
@@ -366,21 +180,6 @@ class SpotmicroEnv(gym.Env):
         """
         return self._total_steps_counter
 
-    @property
-    def motor_joints(self) -> tuple:
-        """
-        Return the list of movable joints (a list of Joint objects)
-        """
-        if self._motor_joints is None:
-            raise ValueError("List of movable joint is not initialized yet. Yous hould call .reset() at least once before trying to access this attribute")
-        return self._motor_joints
-    
-    @property 
-    def homing_positions(self) -> tuple:
-        if self._homing_positions is None:
-            raise ValueError("List of homing positions is not initialzied yet. Call reset() at least once")
-        return self._homing_positions
-
     def close(self):
         """
         Method exposed and used by SB3.
@@ -402,48 +201,18 @@ class SpotmicroEnv(gym.Env):
         super().reset(seed=seed)
         self._episode_step_counter = 0
         self._action_counter = 0
-        self._agent_state["base_position"] = (0.0 , 0.0, self.config.spawn_height) #Height set specifically through trial and error
-        self._agent_state["base_orientation"] = pybullet.getQuaternionFromEuler([0, self.config.homing_pitch, np.pi])
-        self._agent_state["linear_velocity"] = np.zeros(3)
-        self._agent_state["angular_velocity"] = np.zeros(3)
-        self._agent_state["ground_feet_contacts"] = set()
-        self._previous_action = np.zeros(self._ACT_SPACE_SIZE, dtype=np.float32)
+        self._agent.reset()
 
         self._episode_reward_info = []
 
         self._tilt_step = 0
         self._tilt_phase = np.random.uniform(0, 2 * np.pi)
 
-        self._joint_history.clear()
-        dummy_joint_state = [0.0] * 24
-        for _ in range(5):
-            self._joint_history.append(dummy_joint_state)
-
-        pybullet.resetBasePositionAndOrientation(
-        self._robot_id,
-        self._agent_state["base_position"],
-        self._agent_state["base_orientation"],
-        physicsClientId=self.physics_client
-        )
-        pybullet.resetBaseVelocity(self._robot_id, [0,0,0], [0,0,0])
-        
-        # Setting homing position and friction
-        for joint in self._motor_joints:
-            pybullet.resetJointState(self._robot_id, joint.id, joint.homing_position)
-            if joint.type == "foot":
-                pybullet.changeDynamics(
-                    self._robot_id,
-                    linkIndex=joint.id,
-                    lateralFriction=1.5,
-                    physicsClientId=self.physics_client
-                )
-        
         self.reward_state.populate(self)
 
-        #this is just to let the physics stabilize? -> might need to remove this loop
         for _ in range(10):
             pybullet.stepSimulation(physicsClientId=self.physics_client)
-        self._update_agent_state()
+        self._agent.sync_state()
 
         sig = inspect.signature(self._reward_fn)
         if len(sig.parameters) != 2:
@@ -486,16 +255,14 @@ class SpotmicroEnv(gym.Env):
         #Slow down the control loop
         if self._action_counter == int(self._SIM_FREQUENCY / self._CONTROL_FREQUENCY): # apply new action
             observation = self._step_simulation(action)
-            self._update_history()
             self._action_counter = 0
             reward, reward_info = self._calculate_reward(action)
-            self._previous_action = action.copy()
         else:                                                                         # reuse last action
             self._action_counter += 1
-            observation = self._step_simulation(self._previous_action)
-            reward, reward_info = self._calculate_reward(self._previous_action)
+            observation = self._step_simulation(self._agent.previous_action)
+            reward, reward_info = self._calculate_reward(self._agent.previous_action)
 
-        terminated, term_penalty = self._is_target_state(self._agent_state) # checks wether the agent has fallen or not
+        terminated, term_penalty = self._is_target_state() # checks wether the agent has fallen or not
         truncated = self._is_terminated()
         info = self._get_info()
 
@@ -580,7 +347,7 @@ class SpotmicroEnv(gym.Env):
         H += ridges
 
         # clip to safe range from config (optional)
-        H = np.clip(H, self.config.min_height_bumps, self.config.max_height_bumps)
+        H = np.clip(H, self.terrain_config.min_height_bumps, self.terrain_config.max_height_bumps)
 
         heightfield_data = H.flatten().tolist()
 
@@ -596,9 +363,6 @@ class SpotmicroEnv(gym.Env):
         self._plane_id = pybullet.createMultiBody(0, shape)
         return self._plane_id
 
-
-
-    
     def _step_simulation(self, action: np.ndarray) -> np.ndarray:
         """
         Private method that calls the API to execute the given action in PyBullet.
@@ -606,62 +370,14 @@ class SpotmicroEnv(gym.Env):
         Accepts an action and returns an observation
         """
         # Execute the action in pybullet
-        for i, joint in enumerate(self._motor_joints):
-            pybullet.setJointMotorControl2(
-                bodyUniqueId = self._robot_id,
-                jointIndex = joint.id,
-                controlMode = pybullet.POSITION_CONTROL,
-                targetPosition = joint.from_action_to_position(action[i]),
-                force = joint.max_torque
-            )
+        self._agent.apply_action(action)
         
         self._episode_step_counter += 1 #updates the step counter (used to check against timeouts)
         #self._tilt_plane()
         pybullet.stepSimulation()
-        self._update_agent_state()
+        self._agent.sync_state()
 
         return self._get_observation()
-    
-    def _get_joint_states(self) -> tuple[list[float], list[float]]:
-        """
-        Function that returns a list of current positions and a list of current velocities of all the joints of the robot
-        """
-        positions = []
-        velocities = []
-
-        for joint in self._motor_joints:
-            joint_state = pybullet.getJointState(self._robot_id, joint.id)
-            positions.append(joint_state[0])
-            velocities.append(joint_state[1])
-
-        return positions, velocities
-
-    def _update_history(self):
-        hist = []
-        hist.extend(self._joint_positions_norm())
-        hist.extend(self._joint_velocities_norm())
-
-        self._joint_history.appendleft(hist)
-    
-    def _get_ground_feet_contacts(self) -> set:
-        """
-        This method saves which feet are touching the ground
-        """
-        contact_points = pybullet.getContactPoints(
-            bodyA=self._robot_id,
-            bodyB=self._plane_id,
-            physicsClientId=self.physics_client
-        )
-
-        feet_in_contact = set()
-
-        for contact in contact_points:
-            link_idx = contact[3]  # linkIndexA from your robot
-            for joint in self._motor_joints:
-                if link_idx - 1 == joint.link_id and joint.type == "foot": # linkd indices in contacts are shifted by 1 compared to the ones stored in the joint objects (it's conventional). We apply the -1 shift to address the joint with their saved link_id
-                    feet_in_contact.add(link_idx - 1)
-        
-        return feet_in_contact
 
 
     def _get_gravity_vector(self) -> np.ndarray:
@@ -675,23 +391,20 @@ class SpotmicroEnv(gym.Env):
         gravity_world = np.array([0, 0, -1])
         
         # Get the rotation matrix from base orientation quaternion
-        base_orientation = self._agent_state["base_orientation"]
-        rot_matrix = np.array(pybullet.getMatrixFromQuaternion(base_orientation)).reshape(3, 3)
+        rot_matrix = np.array(pybullet.getMatrixFromQuaternion(self._agent.state.base_orientation)).reshape(3, 3)
         
         # Transform gravity vector from world frame to base frame
         gravity_base = rot_matrix.T @ gravity_world
         
         return gravity_base   
     
-    def _joint_positions_norm(self):
-        pos, _ = self._get_joint_states()
+    def _joint_positions_norm(self, pos):
         pos_norm = []
-        for i, joint in enumerate(self._motor_joints):
+        for i, joint in enumerate(self._agent.motor_joints):
             pos_norm.append(((2 * (pos[i] - joint.limits[0])) / (joint.limits[1] - joint.limits[0])) - 1) # Normalize ang position with respect to max range of motion
         return pos_norm
     
-    def _joint_velocities_norm(self): #PARAMETER (normalization)
-        _, vels = self._get_joint_states()
+    def _joint_velocities_norm(self, vels): #PARAMETER (normalization)
         vel_norm = [np.tanh(vel / self.config.max_joint_velocity) for vel in vels] # Normalize velocity with resect to a hypotetical max velocity (10 rad/s)
         return vel_norm
 
@@ -711,49 +424,32 @@ class SpotmicroEnv(gym.Env):
         #NORMALIZATION PARAMETERS
         obs = []
         obs.extend(self._get_gravity_vector())
-        obs.append((((self._agent_state["base_position"])[2]) - self.config.target_height) / self.config.max_norm_height) # Normalized w respect a hypotetical max height of 235 cm
-        obs.extend(np.array(self._agent_state["linear_velocity"]) / self.config.max_linear_velocity) # Normalized w respect to a hypotetical max velocity (2 m/s)
-        obs.extend(np.array(self._agent_state["angular_velocity"]) / self.config.max_angular_velocity) # Normalized w respect to a hypotetical max ang velocity (10 rad/s)
-        obs.extend(self._joint_positions_norm()) 
-        obs.extend(self._joint_velocities_norm())
-        obs.extend(self._joint_history[1])
-        obs.extend(self._joint_history[4])
-        obs.extend(self._previous_action)
+        obs.append((self._agent.state.base_position[2] - self.config.target_height) / self.config.max_norm_height) # Normalized w respect a hypotetical max height of 235 cm
+        obs.extend(self._agent.state.linear_velocity / self.config.max_linear_velocity) # Normalized w respect to a hypotetical max velocity (2 m/s)
+        obs.extend(self._agent.state.angular_velocity / self.config.max_angular_velocity) # Normalized w respect to a hypotetical max ang velocity (10 rad/s)
+        obs.extend(self._joint_positions_norm(self._agent.state.joint_positions)) 
+        obs.extend(self._joint_velocities_norm(self._agent.state.joint_velocities))
+        obs.extend(self._agent.joint_history[1])
+        obs.extend(self._agent.joint_history[4])
+        obs.extend(self._agent.previous_action)
 
         assert len(obs) == self._OBS_SPACE_SIZE, f"Expected 94 elements, got {len(obs)}"
 
         return np.array(obs, dtype=np.float32)
 
-    def _update_agent_state(self) -> None:
-        """
-        Update position, orientation and linear and angular velocities
-        """
-
-        self._agent_state["base_position"], self._agent_state["base_orientation"] = pybullet.getBasePositionAndOrientation(self._robot_id)
-        self._agent_state["linear_velocity"], self._agent_state["angular_velocity"] = pybullet.getBaseVelocity(self._robot_id)
-        self._agent_state["ground_feet_contacts"] = self._get_ground_feet_contacts()
-
-        for joint in self._motor_joints:
-            joint_state = pybullet.getJointState(self._robot_id, joint.id)
-            joint.effort = joint_state[3]
-
-        return  
-
     #@TODO: discuss the target state and rework this
-    def _is_target_state(self, agent_state) -> tuple[bool, int]:
+    def _is_target_state(self) -> tuple[bool, int]:
         """
         Private method that returns wether the state of the agent is a target state (one in which to end the simulation) or not. It also returns a penalty to apply when the specific target condition is met
         """
 
-        base_pos = agent_state["base_position"]
-        roll, pitch, _ = pybullet.getEulerFromQuaternion(self._agent_state["base_orientation"])
+        base_pos = self._agent.state.base_position
+        roll, pitch, _ = self._agent.state.roll_pitch_yaw
         height = base_pos[2]
 
         if height <= self._target_state["min_height"] or height > self._target_state["max_height"]:
-            print(f"Terminated because of height restrictions (height = {height}, min_h = {self._target_state["min_height"]}, max_h = {self._target_state["max_height"]}) ")
             return (True, self.config.jump_fall_penalty) 
         elif abs(roll) > self._target_state["max_pitchroll"] or abs(pitch) > self._target_state["max_pitchroll"]:
-            print("Terminated because of pitch and roll restrictions")
             return (True, self.config.tipping_penalty)
         else:
             return (False, 0)
@@ -772,8 +468,8 @@ class SpotmicroEnv(gym.Env):
             - episode_step
         """
         return {
-            "height": self._agent_state["base_position"][2],
-            "pitch": pybullet.getEulerFromQuaternion(self._agent_state["base_orientation"])[1],
+            "height": self._agent.state.base_position[2],
+            "pitch": self._agent.state.roll_pitch_yaw[1],
             "episode_step": self._episode_step_counter
         }
 
@@ -785,8 +481,8 @@ class SpotmicroEnv(gym.Env):
 
         self._tilt_step += 1
 
-        freq = self.config.rotation_frequency
-        max_angle = self.config.max_tilt_angle
+        freq = self.terrain_config.rotation_frequency
+        max_angle = self.terrain_config.max_tilt_angle
 
         tilt_x = max_angle * np.sin(freq * self._tilt_step + self._tilt_phase)
         tilt_y = max_angle * np.cos(freq * self._tilt_step + self._tilt_phase)
@@ -805,3 +501,7 @@ class SpotmicroEnv(gym.Env):
         Placeholder method that calls the reward function provided as an input
         """
         return self._reward_fn(self, action)
+    
+    @property
+    def agent(self):
+        return self._agent
