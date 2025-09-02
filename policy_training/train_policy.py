@@ -4,8 +4,8 @@ from stable_baselines3.common.env_checker import check_env
 from walking_reward_function import reward_function, RewardState
 from stable_baselines3.common.callbacks import CheckpointCallback
 
-TOTAL_STEPS = 10_000_000
-run = "walk10M-0"
+TOTAL_STEPS = 1_000
+run = "test"
 
 def clipped_linear_schedule(initial_value, min_value=1e-5):
     def schedule(progress_remaining):
