@@ -7,6 +7,7 @@ import inspect, os, pickle, warnings
 from scipy.ndimage import gaussian_filter
 from Config import Config
 from Agent import Agent
+from Terrain import Terrain
 
 class SpotmicroEnv(gym.Env):
     def __init__(self, envConfig="envConfig.yaml", agentConfig="agentConfig.yaml", terrainConfig="terrainConfig.yaml", use_gui=False, reward_fn=None, reward_state=None, dest_save_file=None, src_save_file=None, writer=None):
@@ -92,8 +93,9 @@ class SpotmicroEnv(gym.Env):
         pybullet.setTimeStep(1/self._SIM_FREQUENCY, physicsClientId=self.physics_client)
         pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
 
-        self._create_terrain()
-
+        
+        self._terrain = Terrain(self.physics_client, self.terrain_config)
+        self._plane_id = self._terrain.generate()
         pybullet.changeDynamics(
             bodyUniqueId=self._plane_id,
             linkIndex=-1,
@@ -103,7 +105,6 @@ class SpotmicroEnv(gym.Env):
             restitution=0.0,
             physicsClientId=self.physics_client
         )
-        
         self._agent = Agent(self.physics_client, self.agent_config, self._ACT_SPACE_SIZE)
 
         self._src_file = src_save_file
@@ -116,6 +117,7 @@ class SpotmicroEnv(gym.Env):
                 raise ValueError("Expected a .pkl file for environment state save source")
             
             self.load_state()
+        
             
     def save_state(self):
         state = {
@@ -138,47 +140,6 @@ class SpotmicroEnv(gym.Env):
         self._agent.joint_history = deque(state["joint_history"], maxlen=self.agent_config.joint_history_maxlen)
         #self._TARGET_LINEAR_VELOCITY = state["target_linear_velocity"]
         #self._TARGET_ANGULAR_VELOCITY = state["target_angular_velocity"]
-    
-    @property
-    def target_lin_velocity(self) -> np.ndarray:
-        """
-        Get the current target direction for locomotion (unit vector).
-        """
-        return self._TARGET_LINEAR_VELOCITY
-    
-    @target_lin_velocity.setter
-    def target_linear_velocity(self, lin_velocity: tuple[float, float, float]) -> None:
-        """
-        Set a new target direction for locomotion. Should be a normalized 3D vector
-        """
-        norm = np.linalg.norm(lin_velocity)
-        if norm == 0:
-            raise ValueError("Target direction cannot be a zero vector")
-        self._TARGET_LINEAR_VELOCITY = np.array(np.array(lin_velocity) / norm)
-    
-    @property
-    def target_ang_velocity(self) -> np.ndarray:
-        """
-        Get the current target direction for locomotion (unit vector).
-        """
-        return self._TARGET_ANGULAR_VELOCITY
-    
-    @target_ang_velocity.setter
-    def target_angular_velocity(self, ang_velocity: tuple[float, float, float]) -> None:
-        """
-        Set a new target direction for locomotion. Should be a normalized 3D vector
-        """
-        norm = np.linalg.norm(ang_velocity)
-        if norm == 0:
-            raise ValueError("Target direction cannot be a zero vector")
-        self._TARGET_LINEAR_VELOCITY = np.array(np.array(ang_velocity) / norm)
-    
-    @property
-    def num_steps(self) -> int:
-        """
-        Return the current number of steps
-        """
-        return self._total_steps_counter
 
     def close(self):
         """
@@ -305,63 +266,6 @@ class SpotmicroEnv(gym.Env):
                 self.writer.add_scalar(f"reward_components/{key}", value, self.num_steps)
             except Exception as e:
                 print(f"[Logging Error] Could not log {key}: {e}")
-    
-    def _gen_pothole_heightfield(self, rows=256, cols=256, cell=0.05, n_pits=60, pit_radius=0.10, pit_depth=0.03, smooth_sigma_cells=1.5):
-
-        H = np.zeros((rows, cols), dtype=np.float32)
-
-        # grid coords in meters
-        xs = np.arange(cols) * cell
-        ys = np.arange(rows) * cell
-        X, Y = np.meshgrid(xs, ys)
-
-        rng = np.random.default_rng(42)
-        cx = rng.uniform(xs.min()+pit_radius, xs.max()-pit_radius, size=n_pits)
-        cy = rng.uniform(ys.min()+pit_radius, ys.max()-pit_radius, size=n_pits)
-
-        r2 = pit_radius**2
-        for x0, y0 in zip(cx, cy):
-            # cone-ish bowl using quadratic falloff; clip at radius
-            d2 = (X - x0)**2 + (Y - y0)**2
-            mask = d2 < r2
-            # normalized (0 at rim → 1 at center)
-            w = 1.0 - np.sqrt(d2[mask]) / pit_radius
-            H[mask] -= pit_depth * (w**2)   # smooth bowl
-
-        if smooth_sigma_cells and smooth_sigma_cells > 0:
-            H = gaussian_filter(H, sigma=smooth_sigma_cells)
-
-        return H
-        
-    def _create_terrain(self):
-        rows, cols = 256, 256
-        cell = 0.05  # 5 cm per cell → ~12.8 m square
-
-        # --- base: mild sine ridges orthogonal to heading (+x) ---
-        y = np.linspace(0, cols*cell, cols)
-        Y = np.tile(y, (rows, 1))
-        ridges = 0.02 * np.sin(2*np.pi * Y / 0.30)  # 2cm amp, 20cm wavelength
-
-        # --- add sparse potholes that enforce lift ---
-        H = self._gen_pothole_heightfield(rows, cols, cell, 50)
-        H += ridges
-
-        # clip to safe range from config (optional)
-        H = np.clip(H, self.terrain_config.min_height_bumps, self.terrain_config.max_height_bumps)
-
-        heightfield_data = H.flatten().tolist()
-
-        shape = pybullet.createCollisionShape(
-            shapeType=pybullet.GEOM_HEIGHTFIELD,
-            meshScale=[cell, cell, 1.0],
-            heightfieldTextureScaling=(rows - 1) / 2,
-            heightfieldData=heightfield_data,
-            numHeightfieldRows=rows,
-            numHeightfieldColumns=cols,
-            physicsClientId=self.physics_client
-        )
-        self._plane_id = pybullet.createMultiBody(0, shape)
-        return self._plane_id
 
     def _step_simulation(self, action: np.ndarray) -> np.ndarray:
         """
@@ -473,29 +377,6 @@ class SpotmicroEnv(gym.Env):
             "episode_step": self._episode_step_counter
         }
 
-    def _tilt_plane(self):
-        """
-        Smoothly tilts the plane in one direction
-        Right now it's unused
-        """
-
-        self._tilt_step += 1
-
-        freq = self.terrain_config.rotation_frequency
-        max_angle = self.terrain_config.max_tilt_angle
-
-        tilt_x = max_angle * np.sin(freq * self._tilt_step + self._tilt_phase)
-        tilt_y = max_angle * np.cos(freq * self._tilt_step + self._tilt_phase)
-
-        quat = pybullet.getQuaternionFromEuler([tilt_x, tilt_y, 0])
-
-        pybullet.resetBasePositionAndOrientation(
-            self._plane_id,
-            posObj=[0, 0, 0],
-            ornObj=quat,
-            physicsClientId=self.physics_client
-        )
-
     def _calculate_reward(self, action: np.ndarray) -> tuple[float, dict]:
         """
         Placeholder method that calls the reward function provided as an input
@@ -505,3 +386,48 @@ class SpotmicroEnv(gym.Env):
     @property
     def agent(self):
         return self._agent
+
+    @property
+    def terrain(self):
+        return self._terrain
+    
+    @property
+    def target_lin_velocity(self) -> np.ndarray:
+        """
+        Get the current target direction for locomotion (unit vector).
+        """
+        return self._TARGET_LINEAR_VELOCITY
+    
+    @target_lin_velocity.setter
+    def target_linear_velocity(self, lin_velocity: tuple[float, float, float]) -> None:
+        """
+        Set a new target direction for locomotion. Should be a normalized 3D vector
+        """
+        norm = np.linalg.norm(lin_velocity)
+        if norm == 0:
+            raise ValueError("Target direction cannot be a zero vector")
+        self._TARGET_LINEAR_VELOCITY = np.array(np.array(lin_velocity) / norm)
+    
+    @property
+    def target_ang_velocity(self) -> np.ndarray:
+        """
+        Get the current target direction for locomotion (unit vector).
+        """
+        return self._TARGET_ANGULAR_VELOCITY
+    
+    @target_ang_velocity.setter
+    def target_angular_velocity(self, ang_velocity: tuple[float, float, float]) -> None:
+        """
+        Set a new target direction for locomotion. Should be a normalized 3D vector
+        """
+        norm = np.linalg.norm(ang_velocity)
+        if norm == 0:
+            raise ValueError("Target direction cannot be a zero vector")
+        self._TARGET_LINEAR_VELOCITY = np.array(np.array(ang_velocity) / norm)
+    
+    @property
+    def num_steps(self) -> int:
+        """
+        Return the current number of steps
+        """
+        return self._total_steps_counter
