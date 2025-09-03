@@ -95,7 +95,7 @@ class Agent:
         )
         self._action = np.zeros(self._action_space_size, dtype=np.float32)
         self._previous_action = np.zeros(self._action_space_size, dtype=np.float32)
-        self._joint_history = deque(maxlen=self._config.joint_history_maxlen)
+        self._joint_history = deque(maxlen=self.config.joint_history_maxlen)
 
         # --- Load URDF ---
         self._robot_id = pybullet.loadURDF(
@@ -134,7 +134,7 @@ class Agent:
             base_orientation=pybullet.getQuaternionFromEuler([0, self._config.homing_pitch, np.pi]),
         )
         self._joint_history.clear()
-        dummy_joint_state = np.zeros(len(self._motor_joints) * 2)
+        dummy_joint_state = (np.zeros(len(self._motor_joints)), np.zeros(len(self._motor_joints))) 
         for _ in range(5):
             self._joint_history.append(dummy_joint_state)
 
@@ -209,11 +209,7 @@ class Agent:
         self._state.feet_contacts = self._get_feet_contacts
 
     def _update_joint_history(self):
-        hist = []
-        hist.extend(self._state.joint_positions)
-        hist.extend(self._state.joint_velocities)
-
-        self._joint_history.append(np.array(hist))
+        self._joint_history.append((self._state.joint_positions, self._state.joint_velocities))
 
     # --- Accessors ---
     @property
