@@ -4,7 +4,6 @@ import gymnasium as gym
 from collections import deque
 import matplotlib.pyplot as plt
 import inspect, os, pickle, warnings
-from scipy.ndimage import gaussian_filter
 from Config import Config
 from Agent import Agent
 from Terrain import Terrain
@@ -21,10 +20,7 @@ class SpotmicroEnv(gym.Env):
             raise FileNotFoundError(f"File {terrainConfig} does not exist")
 
         self.config = Config(envConfig)
-        self.agent_config = Config(agentConfig)
-        self.terrain_config = Config(terrainConfig)
 
-        self._plane_id = None
         self.physics_client = None
         self.use_gui = use_gui
         self.np_random = None
@@ -61,7 +57,7 @@ class SpotmicroEnv(gym.Env):
 
         #If the agents is in this state, we terminate the simulation. Should quantize the fact that it has fallen, maybe a threshold?
         self._target_state = {
-            "min_height": self.config.min_height, #meters?
+            "min_height": self.config.min_height,
             "max_height": self.config.max_height,
             "max_pitchroll": self.config.max_pitchroll
         }
@@ -72,17 +68,7 @@ class SpotmicroEnv(gym.Env):
             raise ValueError("reward_fn must be callable (function)")
 
         self._reward_fn = reward_fn
-    
-        self._dest_save = dest_save_file
-        if self._dest_save is not None:
-            if not isinstance(self._dest_save, str):
-                raise TypeError("Destination file path must be a string.")
-            if os.path.exists(dest_save_file):
-                warnings.warn(f"File '{self._dest_save}' already exists and will be overwritten.", UserWarning)
-            if not self._dest_save.endswith(".pkl"):
-                raise ValueError("Expected a .pkl file for environment state save destination")
 
-    
         #Initialize pybullet
         if self.physics_client is None:
             self.physics_client = pybullet.connect(pybullet.GUI if self.use_gui else pybullet.DIRECT)
@@ -92,12 +78,11 @@ class SpotmicroEnv(gym.Env):
         pybullet.setTimeStep(1/self._SIM_FREQUENCY, physicsClientId=self.physics_client)
         pybullet.setTimeStep(1/self._SIM_FREQUENCY, physicsClientId=self.physics_client)
         pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
-
         
-        self._terrain = Terrain(self.physics_client, self.terrain_config)
-        self._plane_id = self._terrain.generate()
+        self._terrain = Terrain(self.physics_client, Config(terrainConfig))
+        self._terrain.generate()
         pybullet.changeDynamics(
-            bodyUniqueId=self._plane_id,
+            bodyUniqueId=self._terrain.terrain_id,
             linkIndex=-1,
             lateralFriction=1.0,           # <- good default
             spinningFriction=0.0,
@@ -105,8 +90,17 @@ class SpotmicroEnv(gym.Env):
             restitution=0.0,
             physicsClientId=self.physics_client
         )
-        self._agent = Agent(self.physics_client, self.agent_config, self._ACT_SPACE_SIZE)
+        self._agent = Agent(self.physics_client, Config(agentConfig), self._ACT_SPACE_SIZE)
 
+        self._dest_save = dest_save_file
+        if self._dest_save is not None:
+            if not isinstance(self._dest_save, str):
+                raise TypeError("Destination file path must be a string.")
+            if os.path.exists(dest_save_file):
+                warnings.warn(f"File '{self._dest_save}' already exists and will be overwritten.", UserWarning)
+            if not self._dest_save.endswith(".pkl"):
+                raise ValueError("Expected a .pkl file for environment state save destination")
+            
         self._src_file = src_save_file
         if self._src_file is not None:
             if not isinstance(self._src_file, str):
@@ -137,7 +131,7 @@ class SpotmicroEnv(gym.Env):
         
         self._total_steps_counter = state["total_steps_counter"]
         self._agent.previous_action = state["previous_action"]
-        self._agent.joint_history = deque(state["joint_history"], maxlen=self.agent_config.joint_history_maxlen)
+        self._agent.joint_history = deque(state["joint_history"], maxlen=self._agent.config.joint_history_maxlen)
         #self._TARGET_LINEAR_VELOCITY = state["target_linear_velocity"]
         #self._TARGET_ANGULAR_VELOCITY = state["target_angular_velocity"]
 
@@ -160,15 +154,13 @@ class SpotmicroEnv(gym.Env):
         """
         
         super().reset(seed=seed)
+
         self._episode_step_counter = 0
         self._action_counter = 0
         self._agent.reset()
+        self._terrain.reset()
 
         self._episode_reward_info = []
-
-        self._tilt_step = 0
-        self._tilt_phase = np.random.uniform(0, 2 * np.pi)
-
         self.reward_state.populate(self)
 
         for _ in range(10):
@@ -190,7 +182,6 @@ class SpotmicroEnv(gym.Env):
         except Exception as e:
             raise ValueError(f"Error testing reward_fn: {str(e)}")
         
-
         observation = self._get_observation()
         return (observation, self._get_info())
     
@@ -277,7 +268,9 @@ class SpotmicroEnv(gym.Env):
         self._agent.apply_action(action)
         
         self._episode_step_counter += 1 #updates the step counter (used to check against timeouts)
-        #self._tilt_plane()
+        
+        if self._terrain.config.mode == "tilting":
+            self._terrain.tilt_plane()
         pybullet.stepSimulation()
         self._agent.sync_state()
 
@@ -341,7 +334,6 @@ class SpotmicroEnv(gym.Env):
 
         return np.array(obs, dtype=np.float32)
 
-    #@TODO: discuss the target state and rework this
     def _is_target_state(self) -> tuple[bool, int]:
         """
         Private method that returns wether the state of the agent is a target state (one in which to end the simulation) or not. It also returns a penalty to apply when the specific target condition is met

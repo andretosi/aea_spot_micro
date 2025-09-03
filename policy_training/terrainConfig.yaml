@@ -1,19 +1,20 @@
-mode: "irregular"
+mode: "tilting"
+evolving: 0 # BOOL flag
 
 #Tilting plane parameters
 rotation_frequency: 0.04
-tilt_angle: 0.1745 #= 10 degrees
+max_tilt_angle: 0.1745 #= 10 degrees
 
 #Terraforming parameters
 n_pits: 60
 pit_radius: 0.10
 pit_depth : 0.03
 
-min_height_bumps: -0.05
-max_height_bumps: 0.05
+min_height_bumps: -0.00
+max_height_bumps: 0.02
 smooth_sigma_cells: 1.5
-ridges_height: 0.025
-ridges_distance: 0.35
+ridges_height: 0.020
+ridges_distance: 0.30
 
 cell_size: 0.05
 grid_size: 256

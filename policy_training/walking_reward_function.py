@@ -47,7 +47,7 @@ def foot_clearance_reward(env, clearance_threshold=0.02):
         ray_end   = [foot_x, foot_y, foot_z - 0.3]
         hit = pybullet.rayTest(ray_start, ray_end, physicsClientId=env.physics_client)[0]
 
-        if hit[0] == env._plane_id:   # hit terrain
+        if hit[0] == env.terrain.terrain_id:   # hit terrain
             terrain_height = hit[3][2]
             clearance = foot_z - terrain_height
 

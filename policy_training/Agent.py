@@ -84,18 +84,18 @@ class Joint:
 
 class Agent:
     def __init__(self, physics_client, config: Config, action_space_size: int):
-        self.config = config
+        self._config = config
         self.physics_client = physics_client
         self._action_space_size = action_space_size
 
         # --- State ---
         self._state = AgentState(
-            base_position=np.array([0.0, 0.0, self.config.spawn_height]),
-            base_orientation=pybullet.getQuaternionFromEuler([0, self.config.homing_pitch, np.pi]),
+            base_position=np.array([0.0, 0.0, self._config.spawn_height]),
+            base_orientation=pybullet.getQuaternionFromEuler([0, self._config.homing_pitch, np.pi]),
         )
         self._action = np.zeros(self._action_space_size, dtype=np.float32)
         self._previous_action = np.zeros(self._action_space_size, dtype=np.float32)
-        self._joint_history = deque(maxlen=self.config.joint_history_maxlen)
+        self._joint_history = deque(maxlen=self._config.joint_history_maxlen)
 
         # --- Load URDF ---
         self._robot_id = pybullet.loadURDF(
@@ -117,7 +117,7 @@ class Agent:
 
             if joint_type == pybullet.JOINT_REVOLUTE:
                 joint_category = joint_name.split("_")[-1]
-                joint = Joint(joint_name, i, joint_link_id, joint_category, joint_limits, self.config)
+                joint = Joint(joint_name, i, joint_link_id, joint_category, joint_limits, self._config)
                 motor_joints.append(joint)
                 homing_positions.append(joint.homing_position)
 
@@ -130,8 +130,8 @@ class Agent:
         """
 
         self._state = AgentState(
-            base_position=np.array([0.0, 0.0, self.config.spawn_height]),
-            base_orientation=pybullet.getQuaternionFromEuler([0, self.config.homing_pitch, np.pi]),
+            base_position=np.array([0.0, 0.0, self._config.spawn_height]),
+            base_orientation=pybullet.getQuaternionFromEuler([0, self._config.homing_pitch, np.pi]),
         )
         self._joint_history.clear()
         dummy_joint_state = np.zeros(len(self._motor_joints) * 2)
@@ -221,6 +221,10 @@ class Agent:
         return self._state
 
     @property
+    def config(self) -> Config:
+        return self._config
+
+    @property
     def agent_id(self):
         return self._robot_id
 
@@ -245,7 +249,7 @@ class Agent:
     
     @joint_history.setter
     def joint_history(self, history: deque):
-        if isinstance(history, deque) and len(history) <= self.config.joint_history_maxlen:
+        if isinstance(history, deque) and len(history) <= self._config.joint_history_maxlen:
             self._joint_history = history
     
     @property
