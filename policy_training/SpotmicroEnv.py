@@ -161,7 +161,10 @@ class SpotmicroEnv(gym.Env):
         self._terrain.reset()
 
         self._episode_reward_info = []
-        self.reward_state.populate(self)
+        if not self.reward_state is None:
+            self.reward_state.populate(self)
+        else:
+            print("Reward state is None")
 
         for _ in range(10):
             pybullet.stepSimulation(physicsClientId=self.physics_client)

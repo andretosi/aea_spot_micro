@@ -1,4 +1,3 @@
-import pybullet
 import numpy as np
 from SpotmicroEnv import SpotmicroEnv
 

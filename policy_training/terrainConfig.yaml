@@ -1,4 +1,4 @@
-mode: "tilting"
+mode: "flat"
 evolving: 0 # BOOL flag
 
 #Tilting plane parameters
