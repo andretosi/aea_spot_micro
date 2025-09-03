@@ -329,8 +329,10 @@ class SpotmicroEnv(gym.Env):
         obs.extend(self._agent.state.angular_velocity / self.config.max_angular_velocity) # Normalized w respect to a hypotetical max ang velocity (10 rad/s)
         obs.extend(self._joint_positions_norm(self._agent.state.joint_positions)) 
         obs.extend(self._joint_velocities_norm(self._agent.state.joint_velocities))
-        obs.extend(self._agent.joint_history[1])
-        obs.extend(self._agent.joint_history[4])
+        obs.extend(self._joint_positions_norm(self._agent.joint_history[1][0]))
+        obs.extend(self._joint_velocities_norm(self._agent.joint_history[1][1]))
+        obs.extend(self._joint_positions_norm(self._agent.joint_history[4][0]))
+        obs.extend(self._joint_velocities_norm(self._agent.joint_history[4][1]))
         obs.extend(self._agent.previous_action)
 
         assert len(obs) == self._OBS_SPACE_SIZE, f"Expected 94 elements, got {len(obs)}"
