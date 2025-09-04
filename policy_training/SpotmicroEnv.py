@@ -166,8 +166,7 @@ class SpotmicroEnv(gym.Env):
         else:
             print("Reward state is None")
 
-        #for _ in range(10):
-        #    pybullet.stepSimulation(physicsClientId=self.physics_client)
+
         self._agent.sync_state()
 
         sig = inspect.signature(self._reward_fn)
