@@ -145,8 +145,19 @@ class Agent:
             physicsClientId=self.physics_client,
         )
 
-        self._action = np.zeros(self._action_space_size, dtype=np.float32)
-        self._previous_action = np.zeros(self._action_space_size, dtype=np.float32)
+        # Reset all motor joints to homing
+        for i, joint in enumerate(self._motor_joints):
+            pybullet.resetJointState(
+                self._robot_id,
+                joint.id,
+                targetValue=self.homing_positions[i],
+                targetVelocity=0.0,
+                physicsClientId=self.physics_client,
+            )
+
+        # Reset actions to "homing" instead of zero
+        self._action = np.array(self.homing_positions, dtype=np.float32)
+        self._previous_action = np.array(self.homing_positions, dtype=np.float32)
     
     def apply_action(self, action: np.ndarray):
         self._previous_action = self._action.copy()
