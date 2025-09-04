@@ -34,7 +34,7 @@ def clipped_linear_schedule(initial_value, min_value=1e-5):
 
 checkpoint_callback = CheckpointCallback(
     save_freq=TOTAL_STEPS // 10,
-    save_path=f"./policies/{run}_checkpoints",
+    save_path=f"{run}_checkpoints",
     name_prefix=f"ppo_{run}"
 )
 
@@ -43,7 +43,7 @@ env = SpotmicroEnv(
     use_gui=False,
     reward_fn=reward_function, 
     reward_state=RewardState(), 
-    dest_save_file=f"states/{run}.pkl"
+    dest_save_file=f"{run}.pkl"
 )
 check_env(env, warn=True)
 
@@ -68,5 +68,5 @@ model.learn(
     reset_num_timesteps=False,
     callback=checkpoint_callback
 )
-model.save(f"policies/ppo_{run}")
+model.save(f"ppo_{run}")
 env.close()
