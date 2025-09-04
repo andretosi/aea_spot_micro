@@ -23,7 +23,7 @@ from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.logger import configure
 
 # ========= CONFIG ==========
-TOTAL_STEPS = 3_000_000
+TOTAL_STEPS = 4_000_000
 run = "stand"
 log_dir = f"./logs/{run}"
 
@@ -33,7 +33,7 @@ def clipped_linear_schedule(initial_value, min_value=1e-5):
     return schedule
 
 checkpoint_callback = CheckpointCallback(
-    save_freq=TOTAL_STEPS // 10,
+    save_freq=TOTAL_STEPS // 5,
     save_path=f"{run}_checkpoints",
     name_prefix=f"ppo_{run}"
 )
@@ -55,6 +55,7 @@ model = PPO(
     learning_rate=clipped_linear_schedule(3e-4),
     ent_coef=0.002,
     clip_range=0.1,
+    n_steps=2048,
     tensorboard_log=log_dir,
 )
 

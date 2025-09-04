@@ -30,23 +30,15 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     height_error = abs(base_height - env.config.target_height)
     height_reward = np.exp(-5 * height_error)  # 1 if perfect, drops off quickly
 
-    # == Vertical velocity ==
-    vertical_velocity_penalty = env.agent.state.linear_velocity[2] ** 2
-  
-
-    # == NEW ADDITIONS TO STABILIZE ==
-    action_magnitude = np.mean(np.abs(action))
-    action_sparsity_reward =  np.exp(-4 * action_magnitude) # Reward for very small actions.
+    # === Joint Deviation Penalty ===
     joint_deviation = np.mean(np.abs(positions - homing_positions))
 
 
     # === Final Reward ===
     reward_dict = {
-        "uprightness": 2 * uprightness,
-        "height": 3 * height_reward,
-        "vertical_velocity_penalty": -2 * vertical_velocity_penalty,
+        "uprightness": 1 * uprightness,
+        "height": 1 * height_reward,
         "joint_deviation_penalty": -4 * joint_deviation,
-        "action_sparsity_reward": 1 * action_sparsity_reward,
     }
     total_reward = sum(reward_dict.values())
 
