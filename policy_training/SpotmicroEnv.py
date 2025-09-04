@@ -147,35 +147,40 @@ class SpotmicroEnv(gym.Env):
         if self._dest_save is not None:
             self.save_state()
 
-    def reset(self, seed: int |None = None, options: dict | None = None) -> tuple[gym.spaces.Box, dict]:
+    def reset(self, seed: int | None = None, options: dict | None = None) -> tuple[np.ndarray, dict]:
         """
-        Method exposed and called by SB3 before starting each episode.
-        Sets the all parameters and puts the agent in place
+        Gymnasium reset: start a new episode, set counters, reset agent and terrain,
+        and return the initial observation and info dict.
         """
-        
         super().reset(seed=seed)
 
         self._episode_step_counter = 0
         self._action_counter = 0
-        self._agent.reset()
-        self._terrain.reset()
-
         self._episode_reward_info = []
-        if not self.reward_state is None:
+
+        # Reset terrain before agent so ground height is consistent
+        self._terrain.reset()
+        self._agent.reset()
+
+        if self.reward_state is not None:
             self.reward_state.populate(self)
         else:
             print("Reward state is None")
 
-
+        # Let physics settle with homing applied
+        for _ in range(5):
+            self._agent.apply_action(np.array(self._agent.homing_positions))
+            pybullet.stepSimulation(physicsClientId=self.physics_client)
         self._agent.sync_state()
 
+        # Sanity check reward function signature
         sig = inspect.signature(self._reward_fn)
         if len(sig.parameters) != 2:
             raise ValueError("reward_fn must accept exactly 2 parameters (env, action)")
-            
+
         # Test reward function return type
         try:
-            dummy_action = np.zeros(self._ACT_SPACE_SIZE)
+            dummy_action = np.array(self._agent.homing_positions, dtype=np.float32)
             reward, info = self._reward_fn(self, dummy_action)
             if not isinstance(reward, (int, float)):
                 raise ValueError("reward_fn must return a number as first return value")
@@ -183,9 +188,8 @@ class SpotmicroEnv(gym.Env):
                 raise ValueError("reward_fn must return a dict as second return value")
         except Exception as e:
             raise ValueError(f"Error testing reward_fn: {str(e)}")
-        
-        observation = self._get_observation()
-        return (observation, self._get_info())
+
+        return self._get_observation(), self._get_info()
     
     def seed(self, seed=None):
         self.np_random, seed = gym.utils.seeding.np_random(seed)
@@ -227,6 +231,8 @@ class SpotmicroEnv(gym.Env):
             reward += term_penalty
 
         self._total_steps_counter += 1
+
+        print(observation)
 
         return observation, reward, terminated, truncated, info
     

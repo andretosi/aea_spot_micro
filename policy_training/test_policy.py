@@ -4,7 +4,7 @@ from stable_baselines3 import PPO
 from SpotmicroEnv import SpotmicroEnv
 from walking_reward_function import reward_function, RewardState
 
-run = "walk27M-0"
+run = "stand"
 
 env = SpotmicroEnv(
     use_gui=True, 
@@ -29,6 +29,6 @@ for _ in range(3001):
         env.plot_reward_components()  # 👈 plot per episode
         obs, _ = env.reset()
     
-    time.sleep(1/60.)  # Match simulation step time for real-time playback
+    time.sleep(1/10.)  # Match simulation step time for real-time playback
 
 env.close()

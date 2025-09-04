@@ -13,7 +13,7 @@ obs, _ = env.reset()
 for _ in range(300):
     action = env.action_space.sample()
     obs, reward, terminated, truncated, _ = env.step(action)
-    time.sleep(1/60.)
+    time.sleep(5.)
 
     if terminated or truncated:
         obs, _ = env.reset()

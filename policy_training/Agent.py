@@ -37,25 +37,19 @@ class Joint:
 
         # --- Type-dependent homing & gains ---
         if self.type == "shoulder":
-            self.homing_position = (
-                config.left_shoulder_hp if self.leftright == "left" else config.right_shoulder_hp
-            )
+            self.homing_position = config.left_shoulder_hp if self.leftright == "left" else config.right_shoulder_hp
             self.gain = config.shoulder_gain
             self.deadzone = config.shoulder_deadzone
             self.power = config.shoulder_power
 
         elif self.type == "leg":
-            self.homing_position = (
-                config.front_legs_hp if self.frontback == "front" else config.rear_legs_hp
-            )
+            self.homing_position = config.front_legs_hp if self.frontback == "front" else config.rear_legs_hp
             self.gain = config.leg_gain
             self.deadzone = config.leg_deadzone
             self.power = config.leg_power
 
         elif self.type == "foot":
-            self.homing_position = (
-                config.front_feet_hp if self.frontback == "front" else config.rear_feet_hp
-            )
+            self.homing_position = config.front_feet_hp if self.frontback == "front" else config.rear_feet_hp
             self.gain = config.foot_gain
             self.deadzone = config.foot_deadzone
             self.power = config.foot_power
@@ -134,7 +128,7 @@ class Agent:
             base_orientation=pybullet.getQuaternionFromEuler([0, self._config.homing_pitch, np.pi]),
         )
         self._joint_history.clear()
-        dummy_joint_state = (np.zeros(len(self._motor_joints)), np.zeros(len(self._motor_joints))) 
+        dummy_joint_state = (np.copy(self._homing_positions), np.zeros(len(self._motor_joints)))
         for _ in range(5):
             self._joint_history.append(dummy_joint_state)
 

@@ -6,6 +6,9 @@ class RewardState:
     def __init__(self):
         self.prev_contacts = set()
 
+    def populate(self, env: SpotmicroEnv):
+        return
+
 def fade_in(current_step, start=300_000, scale=2.0):
     if current_step < start:
         return 0.0
