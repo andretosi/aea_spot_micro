@@ -34,7 +34,7 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     joint_deviation = float(np.mean(np.abs(positions - homing_positions)))
 
     # === Action Sparsity ===
-    action_penalty = np.mean(np.abs(env.agent.action))
+    action_penalty = float(np.mean(np.abs(env.agent.action)))
 
 
     # === Final Reward ===
