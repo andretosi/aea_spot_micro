@@ -232,8 +232,6 @@ class SpotmicroEnv(gym.Env):
 
         self._total_steps_counter += 1
 
-        print(observation)
-
         return observation, reward, terminated, truncated, info
     
     def plot_reward_components(self):
