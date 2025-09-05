@@ -171,7 +171,7 @@ class SpotmicroEnv(gym.Env):
         for _ in range(5):
             self._agent.apply_action(np.array(self._agent.homing_positions))
             pybullet.stepSimulation(physicsClientId=self.physics_client)
-        self._agent.sync_state()
+            self._agent.sync_state()
 
         # Sanity check reward function signature
         sig = inspect.signature(self._reward_fn)

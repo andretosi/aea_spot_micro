@@ -1,6 +1,6 @@
 # <-- ENVIRONMENT PARAMETERS -->
-target_height: 0.216
-spawn_height: 0.232
+target_height: 0.218
+spawn_height: 0.220
 
 #Target states
 min_height: 0.15
