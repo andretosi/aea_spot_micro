@@ -15,8 +15,8 @@ env = SpotmicroEnv(
 obs, _ = env.reset()
 
 # Load your trained model
-model = PPO.load(f"policies/ppo_{run}")  # or path to your .zip
-#model = PPO.load(f"policies/{run}_checkpoints/ppo_{run}_22002496_steps.zip")
+#model = PPO.load(f"policies/ppo_{run}")  # or path to your .zip
+model = PPO.load(f"policies/{run}_checkpoints/ppo_{run}_5000000_steps.zip")
 print(f"num steps: {env.num_steps}")
 
 # Run rollout
@@ -24,11 +24,13 @@ for _ in range(3001):
     action, _states = model.predict(obs, deterministic=True)
     obs, reward, terminated, truncated, info = env.step(action)
 
+    print((env.config.target_height - env.agent.state.base_position[2]) * 100)
     if terminated or truncated:
         print("Terminated")
         env.plot_reward_components()  # 👈 plot per episode
         obs, _ = env.reset()
     
-    time.sleep(1/10.)  # Match simulation step time for real-time playback
+    
+    time.sleep(1/60.)  # Match simulation step time for real-time playback
 
 env.close()

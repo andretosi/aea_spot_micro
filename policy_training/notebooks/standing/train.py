@@ -21,9 +21,11 @@ from reward_function import reward_function, RewardState
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.logger import configure
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
+
 
 # ========= CONFIG ==========
-TOTAL_STEPS = 4_000_000
+TOTAL_STEPS = 5_000_000
 run = "stand"
 log_dir = f"./logs/{run}"
 
@@ -33,24 +35,19 @@ def clipped_linear_schedule(initial_value, min_value=1e-5):
     return schedule
 
 checkpoint_callback = CheckpointCallback(
-    save_freq=TOTAL_STEPS // 5,
+    save_freq=TOTAL_STEPS // 20,
     save_path=f"{run}_checkpoints",
     name_prefix=f"ppo_{run}"
 )
 
 # ========= ENV ==========
-env = SpotmicroEnv(
-    use_gui=False,
-    reward_fn=reward_function, 
-    reward_state=RewardState(), 
-    dest_save_file=f"{run}.pkl"
-)
-check_env(env, warn=True)
+train_env = DummyVecEnv([lambda: SpotmicroEnv(use_gui=False, reward_fn=reward_function, reward_state=RewardState(), dest_save_file=f"states/{run}.pkl")])
+train_env = VecNormalize(train_env, norm_obs=True, norm_reward=False, clip_obs=10.)
 
 # ========= MODEL ==========
 model = PPO(
     "MlpPolicy", 
-    env,
+    train_env,
     verbose=0,   # no default printouts
     learning_rate=clipped_linear_schedule(3e-4),
     ent_coef=0.002,
@@ -70,4 +67,5 @@ model.learn(
     callback=checkpoint_callback
 )
 model.save(f"ppo_{run}")
-env.close()
+train_env.save(f"{run}_vecnormalize.pkl")
+train_env.close()
