@@ -72,6 +72,12 @@ class SpotmicroEnv(gym.Env):
         #Initialize pybullet
         if self.physics_client is None:
             self.physics_client = pybullet.connect(pybullet.GUI if self.use_gui else pybullet.DIRECT)
+            pybullet.resetDebugVisualizerCamera(
+                cameraDistance=1.2,   # zoom out a bit
+                cameraYaw=45,         # rotate around robot
+                cameraPitch=-30,      # look slightly down
+                cameraTargetPosition=[0, 0, 0.2]  # center around robot base
+            )
 
         pybullet.resetSimulation(physicsClientId=self.physics_client)
         pybullet.setGravity(0, 0, -9.81, physicsClientId=self.physics_client)
