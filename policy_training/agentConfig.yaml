@@ -2,12 +2,12 @@
 max_torque: 6.5
 
 #Homing positions
-left_shoulder_hp: -0.05
-right_shoulder_hp: 0.05
-front_legs_hp: -0.4 #-0.37 Limits are -2.66 alll the way to the back and 1.54 all the way to the front
-rear_legs_hp: -0.35 #-0.47
-front_feet_hp: 0.8
-rear_feet_hp: 0.73
+left_shoulder_hp: -0.0502
+right_shoulder_hp: 0.0502
+front_legs_hp: -0.55 #Limits are -2.66 alll the way to the back and 1.54 all the way to the front
+rear_legs_hp: -0.5
+front_feet_hp: 1.1
+rear_feet_hp: 1
 
 homing_pitch: -0.065 #Tilt body slightly forward for stability
 

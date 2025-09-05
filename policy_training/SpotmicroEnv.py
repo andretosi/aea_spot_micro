@@ -90,7 +90,7 @@ class SpotmicroEnv(gym.Env):
             restitution=0.0,
             physicsClientId=self.physics_client
         )
-        self._agent = Agent(self.physics_client, Config(agentConfig), self._ACT_SPACE_SIZE)
+        self._agent = Agent(self.physics_client, Config(agentConfig), self._ACT_SPACE_SIZE, self.config.spawn_height)
 
         self._dest_save = dest_save_file
         if self._dest_save is not None:
@@ -160,7 +160,7 @@ class SpotmicroEnv(gym.Env):
 
         # Reset terrain before agent so ground height is consistent
         self._terrain.reset()
-        self._agent.reset()
+        self._agent.reset(self.config.spawn_height)
 
         if self.reward_state is not None:
             self.reward_state.populate(self)
@@ -169,7 +169,7 @@ class SpotmicroEnv(gym.Env):
 
         # Let physics settle with homing applied
         for _ in range(5):
-            self._agent.apply_action(np.array(self._agent.homing_positions))
+            self._agent.apply_action(np.zeros(len(self._agent.motor_joints), dtype=np.float32)) # Zeros because they map to homing positions
             pybullet.stepSimulation(physicsClientId=self.physics_client)
             self._agent.sync_state()
 

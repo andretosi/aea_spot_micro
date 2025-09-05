@@ -77,14 +77,14 @@ class Joint:
 
 
 class Agent:
-    def __init__(self, physics_client, config: Config, action_space_size: int):
+    def __init__(self, physics_client, config: Config, action_space_size: int, spawn_height: float):
         self._config = config
         self.physics_client = physics_client
         self._action_space_size = action_space_size
 
         # --- State ---
         self._state = AgentState(
-            base_position=np.array([0.0, 0.0, self._config.spawn_height]),
+            base_position=np.array([0.0, 0.0, spawn_height]),
             base_orientation=pybullet.getQuaternionFromEuler([0, self._config.homing_pitch, np.pi]),
         )
         self._action = np.zeros(self._action_space_size, dtype=np.float32)
@@ -118,13 +118,13 @@ class Agent:
         self._motor_joints = tuple(motor_joints)
         self._homing_positions = tuple(homing_positions)
 
-    def reset(self):
+    def reset(self, spawn_heigt: float):
         """
         Reset agent state and simulation.
         """
 
         self._state = AgentState(
-            base_position=np.array([0.0, 0.0, self._config.spawn_height]),
+            base_position=np.array([0.0, 0.0, spawn_heigt]),
             base_orientation=pybullet.getQuaternionFromEuler([0, self._config.homing_pitch, np.pi]),
         )
         self._joint_history.clear()
@@ -161,6 +161,9 @@ class Agent:
         self._previous_action = np.zeros(len(self._motor_joints), dtype=np.float32)
     
     def apply_action(self, action: np.ndarray):
+        """
+        This method takes a NORMALIZED action, updates the agent, maps it to joint positions and applies them through pybullet
+        """
         self._previous_action = self._action.copy()
         self._action = action
         
