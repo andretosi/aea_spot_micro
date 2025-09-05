@@ -35,7 +35,7 @@ def clipped_linear_schedule(initial_value, min_value=1e-5):
     return schedule
 
 checkpoint_callback = CheckpointCallback(
-    save_freq=TOTAL_STEPS // 20,
+    save_freq=TOTAL_STEPS // 40,
     save_path=f"{run}_checkpoints",
     name_prefix=f"ppo_{run}"
 )
@@ -50,9 +50,8 @@ model = PPO(
     train_env,
     verbose=0,   # no default printouts
     learning_rate=clipped_linear_schedule(3e-4),
-    ent_coef=0.002,
+    ent_coef=0.001,
     clip_range=0.1,
-    n_steps=2048,
     tensorboard_log=log_dir,
 )
 
