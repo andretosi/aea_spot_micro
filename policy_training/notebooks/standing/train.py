@@ -23,7 +23,7 @@ from stable_baselines3.common.logger import configure
 
 # ========= CONFIG ==========
 TOTAL_STEPS = 3_000_000
-run = "stand"
+run = "stand-2"
 log_dir = f"./logs/{run}"
 
 def clipped_linear_schedule(initial_value, min_value=1e-5):
@@ -67,5 +67,5 @@ model.learn(
     reset_num_timesteps=False,
     callback=checkpoint_callback
 )
-model.save(f"policies/ppo_{run}")
+model.save(f"ppo_{run}")
 env.close()
