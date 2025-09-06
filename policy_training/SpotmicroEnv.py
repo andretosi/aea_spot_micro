@@ -283,6 +283,7 @@ class SpotmicroEnv(gym.Env):
         
         if self._terrain.config.mode == "tilting":
             self._terrain.tilt_plane()
+        
         pybullet.stepSimulation()
         self._agent.sync_state()
 

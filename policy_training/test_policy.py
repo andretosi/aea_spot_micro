@@ -21,7 +21,7 @@ print(f"num steps: {env.num_steps}")
 
 # Run rollout
 for _ in range(3001):
-    action, _states = model.predict(obs, deterministic=True)
+    action, _ = model.predict(obs, deterministic=True)
     obs, reward, terminated, truncated, info = env.step(action)
 
     print((env.config.target_height - env.agent.state.base_position[2]) * 100)
