@@ -116,7 +116,12 @@ class Agent:
                 homing_positions.append(joint.homing_position)
 
         self._motor_joints = tuple(motor_joints)
-        self._homing_positions = tuple(homing_positions)
+        self._homing_positions = np.array(homing_positions)
+
+        for idx, joint in enumerate(self._motor_joints):
+            assert joint.id == pybullet.getJointInfo(self._robot_id, joint.id)[0], \
+                f"Joint index mismatch at position {idx}"
+
 
     def reset(self, spawn_heigt: float):
         """
@@ -162,7 +167,7 @@ class Agent:
     
     def apply_action(self, action: np.ndarray):
         """
-        This method takes a NORMALIZED action, updates the agent, maps it to joint positions and applies them through pybullet
+        This method takes a NORMALIZED action, updates the agent, maps it to joint positions and applies it to the joints through pybullet
         """
         self._previous_action = self._action.copy()
         self._action = action
@@ -264,7 +269,7 @@ class Agent:
             self._joint_history = history
     
     @property
-    def homing_positions(self) -> tuple:
+    def homing_positions(self) -> np.ndarray:
         return self._homing_positions
     
     @property
