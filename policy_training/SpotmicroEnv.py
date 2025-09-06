@@ -161,7 +161,6 @@ class SpotmicroEnv(gym.Env):
         super().reset(seed=seed)
 
         self._episode_step_counter = 0
-        self._action_counter = 0
         self._episode_reward_info = []
 
         # Reset terrain before agent so ground height is consistent
@@ -217,12 +216,10 @@ class SpotmicroEnv(gym.Env):
                 - info (dict): Contains auxiliary diagnostic information.
         """
         #Slow down the control loop
-        if self._action_counter == int(self._SIM_FREQUENCY / self._CONTROL_FREQUENCY): # apply new action
+        if self._episode_step_counter % int(self._SIM_FREQUENCY / self._CONTROL_FREQUENCY) == 0: # apply new action
             observation = self._step_simulation(action)
-            self._action_counter = 0
             reward, reward_info = self._calculate_reward(action)
         else:                                                                         # reuse last action
-            self._action_counter += 1
             observation = self._step_simulation(self._agent.previous_action)
             reward, reward_info = self._calculate_reward(self._agent.previous_action)
 
