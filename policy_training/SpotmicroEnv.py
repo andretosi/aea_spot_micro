@@ -200,7 +200,7 @@ class SpotmicroEnv(gym.Env):
         self.np_random, seed = gym.utils.seeding.np_random(seed)
         return [seed]
 
-    def step(self, action: np.ndarray) -> tuple[gym.spaces.Box, float, bool, bool, dict]:
+    def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
         """
         Method exposed and used bby SB3 to execute one time step within the environment.
 
