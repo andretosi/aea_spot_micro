@@ -36,7 +36,6 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
         "height_penalty": -3 * min(height_penalty, 1.0),
         "stabilization_penalty": -3 * min(stabilization_penalty, 1.0),
         "angular_vel_penalty": -1 * ang_vel_error,
-        "action_rate_penalty": -1 * fade_in(env.num_steps, 6_000_000) * action_rate,
         "deviation_penalty": -0.5 * deviation_penalty,
     }
     total_reward = sum(reward_dict.values())
