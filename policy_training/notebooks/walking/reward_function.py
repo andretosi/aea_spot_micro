@@ -30,19 +30,19 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     total_normalized_effort = np.sum([(j.effort / j.max_torque) ** 2 for j in env.agent.motor_joints]) / len(env.agent.motor_joints)
 
     # Derived penalties
-    lin_vel_reward = max(1 - 1.75 * lin_vel_error, -1.0)
+    lin_vel_reward = max(1 - 2 * lin_vel_error, -1.0)
     drift_penalty = np.linalg.norm(perp_velocity) ** 2
 
     # === Final Reward ===
     reward_dict = {
         "linear_vel_reward": 15 * lin_vel_reward,
         "angular_vel_penalty": -5 * ang_vel_error,
+        "drift_penalty": -4 * drift_penalty,
         "height_penalty": -3 * min(height_penalty, 1.0),
         "stabilization_penalty": -3 * min(stabilization_penalty, 1.0),
-        "drift_penalty": -2 * drift_penalty,
+        "action_rate_penalty": -2 * action_rate,
         "effort_penalty": -1 * total_normalized_effort,
         "deviation_penalty": -0.5 * deviation_penalty,
-        "action_rate_penalty": -0.5 * action_rate,
         "vertical_motion_penalty": -0.5 * vertical_velocity_sq,
     }
     total_reward = sum(reward_dict.values())
