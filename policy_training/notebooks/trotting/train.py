@@ -22,7 +22,7 @@ from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.logger import configure
 
 # ========= CONFIG ==========
-TOTAL_STEPS = 9_000_000
+TOTAL_STEPS = 13_000_000
 run = "shuffle"
 base="stand"
 
@@ -34,7 +34,7 @@ def clipped_linear_schedule(initial_value, min_value=1e-5):
     return schedule
 
 checkpoint_callback = CheckpointCallback(
-    save_freq=TOTAL_STEPS // 10,
+    save_freq=TOTAL_STEPS // 13,
     save_path=f"{run}_checkpoints",
     name_prefix=f"ppo_{run}"
 )
