@@ -8,6 +8,17 @@ from Config import Config
 from Agent import Agent
 from Terrain import Terrain
 
+class ConfigEnv(Config):
+    def __init__(self, filename: str):
+        super().__init__(filename)
+
+        attributes = ["c_potholes", "c_ridges", "c_roughness"]
+        for attr in attributes:
+            if not hasattr(self, attr):
+                setattr(self, attr, 0.0)
+        
+
+
 class SpotmicroEnv(gym.Env):
     def __init__(self, envConfig="envConfig.yaml", agentConfig="agentConfig.yaml", terrainConfig="terrainConfig.yaml", use_gui=False, reward_fn=None, reward_state=None, dest_save_file=None, src_save_file=None, writer=None):
         super().__init__()
@@ -19,7 +30,7 @@ class SpotmicroEnv(gym.Env):
         if not os.path.isfile(terrainConfig):
             raise FileNotFoundError(f"File {terrainConfig} does not exist")
 
-        self.config = Config(envConfig)
+        self.config = ConfigEnv(envConfig)
 
         self.physics_client = None
         self.use_gui = use_gui
@@ -86,6 +97,9 @@ class SpotmicroEnv(gym.Env):
         pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
         
         self._terrain = Terrain(self.physics_client, Config(terrainConfig))
+
+        
+
         self._terrain_evo_coefficients = np.array([self.config.c_potholes, self.config.c_ridges, self.config.c_roughness])
         self._terrain.generate(self._terrain_evo_coefficients)
         pybullet.changeDynamics(
