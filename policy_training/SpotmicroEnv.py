@@ -86,11 +86,12 @@ class SpotmicroEnv(gym.Env):
         pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
         
         self._terrain = Terrain(self.physics_client, Config(terrainConfig))
-        self._terrain.generate()
+        self._terrain_evo_coefficients = np.array([self.config.c_potholes, self.config.c_ridges, self.config.c_roughness])
+        self._terrain.generate(self._terrain_evo_coefficients)
         pybullet.changeDynamics(
             bodyUniqueId=self._terrain.terrain_id,
             linkIndex=-1,
-            lateralFriction=1.0,           # <- good default
+            lateralFriction=1.0,           
             spinningFriction=0.0,
             rollingFriction=0.0,
             restitution=0.0,
@@ -165,6 +166,8 @@ class SpotmicroEnv(gym.Env):
 
         # Reset terrain before agent so ground height is consistent
         self._terrain.reset()
+        if self._terrain.config.evolving:
+            self._terrain.generate(self._schedule_terrain_evo())
         self._agent.reset(self.config.spawn_height)
 
         if self.reward_state is not None:
@@ -386,6 +389,14 @@ class SpotmicroEnv(gym.Env):
         Placeholder method that calls the reward function provided as an input
         """
         return self._reward_fn(self, action)
+
+    def _schedule_terrain_evo(self) -> np.ndarray:
+        if self.config.evolution_mode == "constant":
+            return self._terrain_evo_coefficients
+        elif self.config.evolution_mode == "linear":
+            linear_alpha = self._total_steps_counter / 1_000_000 # TOTALLY UNSTABLE TODO NEED TO NORMALIZE
+            return self._terrain_evo_coefficients * (1 - linear_alpha) + np.array([linear_alpha for coeff in self._terrain_evo_coefficients])
+
     
     @property
     def agent(self):

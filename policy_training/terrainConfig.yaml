@@ -1,5 +1,5 @@
 mode: "flat"
-evolving: 0 # BOOL flag
+
 
 #Tilting plane parameters
 rotation_frequency: 0.04

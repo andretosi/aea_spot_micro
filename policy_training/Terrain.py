@@ -11,7 +11,7 @@ class Terrain:
         self._terrain_id = None
         self._tilt_step = 0
 
-    def generate(self, coefficients: tuple[float, float, float] = (0.0, 0.0, 0.0)) -> None:
+    def generate(self, coefficients: tuple[float, float, float] = (0.0, 0.0, 0.0)) -> None:    
         if self._config.mode == "flat":
             self._terrain_id = pybullet.loadURDF(
                 "plane.urdf",
@@ -31,13 +31,12 @@ class Terrain:
         else:
             raise ValueError(f"Unknown terrain mode: {self._config.mode}")
 
+        self._generated = 1
         return self._terrain_id
 
     def reset(self):
         self._tilt_step = 0
         self._tilt_phase = np.random.uniform(0, 2 * np.pi)
-        if self._config.evolving:
-            pass #@TODO
     
     def tilt_plane(self):
         
