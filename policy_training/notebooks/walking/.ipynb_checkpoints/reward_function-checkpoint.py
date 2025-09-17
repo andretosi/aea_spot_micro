@@ -36,7 +36,7 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
         #TODO: might need to normalize ang vel pnealty somehow, since it reaches -140 an evaluation. ALso action rate ppenalty is big since it reaches -30, is it normalized? it is also spiky, so maybe implement an EMA for that. It will surely help put everything together more nicely, right now IG the reward is to noisy to be properly interpreted
     # === Final Reward ===
     reward_dict = {
-        "linear_vel_reward": 12 * lin_vel_reward,
+        "linear_vel_reward": 16 * lin_vel_reward,
         "angular_vel_penalty": -5 * ang_vel_error,
         "drift_penalty": -6 * drift_penalty,
         "action_rate_penalty": -4 * action_rate,

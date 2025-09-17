@@ -23,7 +23,7 @@ from stable_baselines3.common.logger import configure
 
 # ========= CONFIG ==========
 TOTAL_STEPS = 13_000_000
-run = "shuffle"
+run = "trot2"
 base="stand"
 
 log_dir = f"./logs/{run}"
