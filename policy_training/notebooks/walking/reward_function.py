@@ -20,10 +20,10 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
 
     # Errors and metrics
     lin_vel_error = np.linalg.norm(env.target_lin_velocity - env.agent.state.linear_velocity) ** 2
-    ang_vel_error = np.linalg.norm(env.target_ang_velocity - env.agent.state.angular_velocity) ** 2
+    ang_vel_error = np.linalg.norm((env.target_ang_velocity - env.agent.state.angular_velocity) / env.config.max_angular_velocity)** 2
     deviation_penalty = np.linalg.norm(env.agent.state.joint_positions - env.agent.homing_positions) ** 2
     height_penalty = (env.agent.state.base_position[2] - env.config.target_height) ** 2
-    action_rate = np.linalg.norm(action - env.agent.previous_action) ** 2
+    action_rate = np.mean(action - env.agent.previous_action) ** 2
     vertical_velocity_sq =  env.agent.state.linear_velocity[2] ** 2
     stabilization_penalty = roll ** 2 + pitch ** 2
     perp_velocity = env.agent.state.linear_velocity - ((np.dot(env.agent.state.linear_velocity, env.target_lin_velocity) / (np.linalg.norm(env.target_lin_velocity) ** 2)) * env.target_lin_velocity)
@@ -33,6 +33,7 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     lin_vel_reward = max(1 - 2 * lin_vel_error, -1.0)
     drift_penalty = np.linalg.norm(perp_velocity) ** 2
 
+        #TODO: might need to normalize ang vel pnealty somehow, since it reaches -140 an evaluation. ALso action rate ppenalty is big since it reaches -30, is it normalized? it is also spiky, so maybe implement an EMA for that. It will surely help put everything together more nicely, right now IG the reward is to noisy to be properly interpreted
     # === Final Reward ===
     reward_dict = {
         "linear_vel_reward": 12 * lin_vel_reward,
