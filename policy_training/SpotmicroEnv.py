@@ -46,7 +46,7 @@ class SpotmicroEnv(gym.Env):
         self._CONTROL_FREQUENCY = 60
         self._JOINT_HISTORY_MAX_LEN = 5
 
-        self._TARGET_LINEAR_VELOCITY = np.array([0.2, 0.0, 0.0])
+        self._TARGET_LINEAR_VELOCITY = np.array([0.3, 0.0, 0.0])
         self._TARGET_ANGULAR_VELOCITY = np.array([0.0, 0.0, 0.0])
 
         self._episode_step_counter = 0

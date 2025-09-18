@@ -25,6 +25,7 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     height_penalty = (env.agent.state.base_position[2] - env.config.target_height) ** 2
     stabilization_penalty = roll ** 2 + pitch ** 2
     perp_velocity = env.agent.state.linear_velocity - ((np.dot(env.agent.state.linear_velocity, env.target_lin_velocity) / (np.linalg.norm(env.target_lin_velocity) ** 2)) * env.target_lin_velocity)
+    action_rate = np.mean(action - env.agent.previous_action) ** 2
 
     # Derived penalties
     lin_vel_reward = max(1 - 1.75 * lin_vel_error, -1.0)
@@ -38,6 +39,7 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
         "stabilization_penalty": -3 * min(stabilization_penalty, 1.0),
         "drift_penalty": -2 * drift_penalty,
         "angular_vel_penalty": -1.5 * ang_vel_error,
+        "action_rate_penalty": -1 * action_rate,
         "deviation_penalty": -0.5 * deviation_penalty,
     }
     total_reward = sum(reward_dict.values())
