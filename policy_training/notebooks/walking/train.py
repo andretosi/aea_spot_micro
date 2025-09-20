@@ -22,9 +22,9 @@ from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.logger import configure
 
 # ========= CONFIG ==========
-TOTAL_STEPS = 8_000_000
-run = "shuffle"
-base="stand"
+TOTAL_STEPS = 10_000_000
+run = "walk"
+base="trot"
 
 log_dir = f"./logs/{run}"
 

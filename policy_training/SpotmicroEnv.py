@@ -8,6 +8,17 @@ from Config import Config
 from Agent import Agent
 from Terrain import Terrain
 
+class ConfigEnv(Config):
+    def __init__(self, filename: str):
+        super().__init__(filename)
+
+        attributes = ["c_potholes", "c_ridges", "c_roughness"]
+        for attr in attributes:
+            if not hasattr(self, attr):
+                setattr(self, attr, 0.0)
+        
+
+
 class SpotmicroEnv(gym.Env):
     def __init__(self, envConfig="envConfig.yaml", agentConfig="agentConfig.yaml", terrainConfig="terrainConfig.yaml", use_gui=False, reward_fn=None, reward_state=None, dest_save_file=None, src_save_file=None, writer=None):
         super().__init__()
@@ -19,7 +30,7 @@ class SpotmicroEnv(gym.Env):
         if not os.path.isfile(terrainConfig):
             raise FileNotFoundError(f"File {terrainConfig} does not exist")
 
-        self.config = Config(envConfig)
+        self.config = ConfigEnv(envConfig)
 
         self.physics_client = None
         self.use_gui = use_gui
@@ -35,7 +46,7 @@ class SpotmicroEnv(gym.Env):
         self._CONTROL_FREQUENCY = 60
         self._JOINT_HISTORY_MAX_LEN = 5
 
-        self._TARGET_LINEAR_VELOCITY = np.array([0.4, 0.0, 0.0])
+        self._TARGET_LINEAR_VELOCITY = np.array([0.3, 0.0, 0.0])
         self._TARGET_ANGULAR_VELOCITY = np.array([0.0, 0.0, 0.0])
 
         self._episode_step_counter = 0
@@ -86,11 +97,15 @@ class SpotmicroEnv(gym.Env):
         pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
         
         self._terrain = Terrain(self.physics_client, Config(terrainConfig))
-        self._terrain.generate()
+
+        
+
+        self._terrain_evo_coefficients = np.array([self.config.c_potholes, self.config.c_ridges, self.config.c_roughness])
+        self._terrain.generate(self._terrain_evo_coefficients)
         pybullet.changeDynamics(
             bodyUniqueId=self._terrain.terrain_id,
             linkIndex=-1,
-            lateralFriction=1.0,           # <- good default
+            lateralFriction=1.0,           
             spinningFriction=0.0,
             rollingFriction=0.0,
             restitution=0.0,
@@ -165,6 +180,8 @@ class SpotmicroEnv(gym.Env):
 
         # Reset terrain before agent so ground height is consistent
         self._terrain.reset()
+        if self._terrain.config.evolving:
+            self._terrain.generate(self._schedule_terrain_evo())
         self._agent.reset(self.config.spawn_height)
 
         if self.reward_state is not None:
@@ -200,7 +217,7 @@ class SpotmicroEnv(gym.Env):
         self.np_random, seed = gym.utils.seeding.np_random(seed)
         return [seed]
 
-    def step(self, action: np.ndarray) -> tuple[gym.spaces.Box, float, bool, bool, dict]:
+    def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
         """
         Method exposed and used bby SB3 to execute one time step within the environment.
 
@@ -386,6 +403,14 @@ class SpotmicroEnv(gym.Env):
         Placeholder method that calls the reward function provided as an input
         """
         return self._reward_fn(self, action)
+
+    def _schedule_terrain_evo(self) -> np.ndarray:
+        if self.config.evolution_mode == "constant":
+            return self._terrain_evo_coefficients
+        elif self.config.evolution_mode == "linear":
+            linear_alpha = self._total_steps_counter / 1_000_000 # TOTALLY UNSTABLE TODO NEED TO NORMALIZE
+            return self._terrain_evo_coefficients * (1 - linear_alpha) + np.array([linear_alpha for coeff in self._terrain_evo_coefficients])
+
     
     @property
     def agent(self):

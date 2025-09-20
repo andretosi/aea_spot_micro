@@ -1,5 +1,5 @@
-mode: "flat"
-
+mode: "irregular" #options are flat, tilting, irregular
+evolving: 0 # BOOL flag
 
 #Tilting plane parameters
 rotation_frequency: 0.04

@@ -131,7 +131,9 @@ class Agent:
         self._state = AgentState(
             base_position=np.array([0.0, 0.0, spawn_heigt]),
             base_orientation=pybullet.getQuaternionFromEuler([0, self._config.homing_pitch, np.pi]),
-        )
+            #linear_velocity=np.array([0.0, 0.0, 0.0])
+            #angular_velocity=np.array([0.0, 0.0, 0.0])
+        )#
         self._joint_history.clear()
         dummy_joint_state = (np.copy(self._homing_positions), np.zeros(len(self._motor_joints)))
         for _ in range(5):
