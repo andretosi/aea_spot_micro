@@ -20,6 +20,6 @@ tipping_penalty: -2
 
 #Curricular shaping of terrain evolution
 evolution_mode: "constant" #constant or exponential
-c_potholes: 0.9
-c_ridges: 0.8
-c_roughness: 0.7
+c_potholes: 0.0
+c_ridges: 1.5
+c_roughness: 0.8
