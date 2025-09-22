@@ -26,14 +26,17 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     action_rate = np.mean(action - env.agent.previous_action) ** 2
     vertical_velocity_sq =  env.agent.state.linear_velocity[2] ** 2
     stabilization_penalty = roll ** 2 + pitch ** 2
-    perp_velocity = env.agent.state.linear_velocity - ((np.dot(env.agent.state.linear_velocity, env.target_lin_velocity) / (np.linalg.norm(env.target_lin_velocity) ** 2)) * env.target_lin_velocity)
+    
+    # Projection of velocity along target direction (cosine similarity * speed)
+    lin_vel_proj = np.dot(env.agent.state.linear_velocity, env.target_lin_velocity) / (np.linalg.norm(env.target_lin_velocity) + 1e-6)
+    perp_velocity = env.agent.state.linear_velocity - ((lin_vel_proj ** 2) * env.target_lin_velocity)
     total_normalized_effort = np.sum([(j.effort / j.max_torque) ** 2 for j in env.agent.motor_joints]) / len(env.agent.motor_joints)
 
     # Derived penalties
-    lin_vel_reward = max(1 - 2 * lin_vel_error, -1.0)
+    lin_vel_reward = lin_vel_proj / np.linalg.norm(env.target_lin_velocity)
     drift_penalty = np.linalg.norm(perp_velocity) ** 2
 
-        #TODO: might need to normalize ang vel pnealty somehow, since it reaches -140 an evaluation. ALso action rate ppenalty is big since it reaches -30, is it normalized? it is also spiky, so maybe implement an EMA for that. It will surely help put everything together more nicely, right now IG the reward is to noisy to be properly interpreted
+    
     # === Final Reward ===
     reward_dict = {
         "linear_vel_reward": 16 * lin_vel_reward,

@@ -16,8 +16,6 @@ class ConfigEnv(Config):
         for attr in attributes:
             if not hasattr(self, attr):
                 setattr(self, attr, 0.0)
-        
-
 
 class SpotmicroEnv(gym.Env):
     def __init__(self, envConfig="envConfig.yaml", agentConfig="agentConfig.yaml", terrainConfig="terrainConfig.yaml", use_gui=False, reward_fn=None, reward_state=None, dest_save_file=None, src_save_file=None, writer=None):
