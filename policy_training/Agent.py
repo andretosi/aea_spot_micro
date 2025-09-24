@@ -125,7 +125,7 @@ class Agent:
 
     def reset(self, spawn_heigt: float):
         """
-        Reset agent state and simulation.
+        Reset agent state
         """
 
         self._state = AgentState(

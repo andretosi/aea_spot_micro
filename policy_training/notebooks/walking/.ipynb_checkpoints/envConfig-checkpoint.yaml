@@ -22,4 +22,4 @@ tipping_penalty: -2
 evolution_mode: "constant" #constant or exponential
 c_potholes: 0.0
 c_ridges: 1.5
-c_roughness: 0.0
+c_roughness: 0.8
