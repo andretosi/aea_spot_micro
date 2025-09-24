@@ -346,9 +346,9 @@ class SpotmicroEnv(gym.Env):
         #NORMALIZATION PARAMETERS
         obs = []
         obs.extend(self._get_gravity_vector())
-        obs.append((self._agent.state.base_position[2] - self.config.target_height) / self.config.max_norm_height) # Normalized w respect a hypotetical max height of 235 cm
-        obs.extend(self._agent.state.linear_velocity / self.config.max_linear_velocity) # Normalized w respect to a hypotetical max velocity (2 m/s)
-        obs.extend(self._agent.state.angular_velocity / self.config.max_angular_velocity) # Normalized w respect to a hypotetical max ang velocity (10 rad/s)
+        obs.append((self._agent.state.base_position[2] - self.config.target_height) / self.config.max_norm_height) # Normalized w respect a hypotetical max height
+        obs.extend(self._agent.state.linear_velocity / self.config.max_linear_velocity) # Normalized w respect to a hypotetical max velocity
+        obs.extend(self._agent.state.angular_velocity / self.config.max_angular_velocity) # Normalized w respect to a hypotetical max ang velocity
         obs.extend(self._joint_positions_norm(self._agent.state.joint_positions)) 
         obs.extend(self._joint_velocities_norm(self._agent.state.joint_velocities))
         obs.extend(self._joint_positions_norm(self._agent.joint_history[1][0]))
@@ -458,3 +458,7 @@ class SpotmicroEnv(gym.Env):
         Return the current number of steps
         """
         return self._total_steps_counter
+
+    @property
+    def sim_frequency(self) -> int:
+        return self._SIM_FREQUENCY
