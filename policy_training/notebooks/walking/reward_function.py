@@ -21,7 +21,7 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     percentage_error = 0.2
 
     # Errors and metrics
-    lin_vel_error = np.linalg.norm(env.target_lin_velocity - env.agent.state.linear_velocity) ** 2
+    lin_vel_sq_perc_error = (np.linalg.norm(env.target_lin_velocity - env.agent.state.linear_velocity) / np.linalg.norm(env.target_lin_velocity) + 1e-6)** 2
     ang_vel_error = np.linalg.norm((env.target_ang_velocity - env.agent.state.angular_velocity))** 2
     deviation_penalty = np.linalg.norm(env.agent.state.joint_positions - env.agent.homing_positions) ** 2
     height_penalty = (env.agent.state.base_position[2] - env.config.target_height) ** 2
@@ -32,9 +32,8 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     total_normalized_effort = np.sum([(j.effort / j.max_torque) ** 2 for j in env.agent.motor_joints]) / len(env.agent.motor_joints)
 
     # Derived penalties
-    percentage_error = 0.3
-    alpha = 1 / (percentage_error**2 * np.linalg.norm(env.target_lin_velocity))
-    lin_vel_reward = max(1 - alpha * lin_vel_error, -1.0)
+    tolerance = 0.3
+    lin_vel_reward = max(1.0 - ((lin_vel_sq_perc_error / tolerance) **2), -1.0)
     drift_penalty = np.linalg.norm(perp_velocity) ** 2
 
     delta_pos = env.agent.state.base_position - env.reward_state.prev_base_position
