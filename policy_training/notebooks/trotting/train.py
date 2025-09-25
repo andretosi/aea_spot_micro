@@ -43,7 +43,7 @@ checkpoint_callback = CheckpointCallback(
 env = SpotmicroEnv(
     use_gui=False,
     reward_fn=reward_function, 
-    reward_state=RewardState(),
+    reward_state=RewardState(total_training_steps=TOTAL_STEPS),
     src_save_file=f"{base}.pkl",
     dest_save_file=f"{run}.pkl"
 )
