@@ -3,11 +3,17 @@ import numpy as np
 from SpotmicroEnv import SpotmicroEnv
 
 class RewardState:
-    def __init__(self):
+    def __init__(self, total_training_steps=None):
         self.prev_contacts = set()
+        self.total_training_steps = total_training_steps
 
     def populate(self, env: SpotmicroEnv):
         return
+    
+    def progress(self, env: SpotmicroEnv):
+        if self.total_training_steps is None:
+            return 1.0
+        return min(env.num_steps / self.total_training_steps, 1.0)
 
 def fade_in(current_step, start, scale=2.0):
     if current_step < start:
