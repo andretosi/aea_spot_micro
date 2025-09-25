@@ -28,7 +28,10 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     action_rate = np.mean(action - env.agent.previous_action) ** 2
 
     # Derived penalties
-    lin_vel_reward = max(1 - 1.75 * lin_vel_error, -1.0)
+    percentage_error = 0.3
+    alpha = 1 / (percentage_error**2 * np.linalg.norm(env.target_lin_velocity))
+
+    lin_vel_reward = max(1 - progress * alpha * lin_vel_error, -1.0)
     drift_penalty = np.linalg.norm(perp_velocity) ** 2
 
 
