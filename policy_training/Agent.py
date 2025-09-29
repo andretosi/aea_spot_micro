@@ -53,28 +53,24 @@ class Joint:
             self.gain = config.foot_gain
             self.deadzone = config.foot_deadzone
             self.power = config.foot_power
+    
+    def from_position_to_action(self, pos: float) -> float:
+        high, low = self.limits
+        return (2*pos - high - low) / (high - low)
 
     def from_action_to_position(self, action: float) -> float:
         """Map action ∈ [-1,1] → joint position."""
         a = float(np.clip(action, -1.0, 1.0))
         low, high = self.limits
-        h = self.homing_position
 
-        # --- Deadzone ---
-        if abs(a) < self.deadzone:
-            return float(np.clip(h, low, high))
-        a_eff = np.sign(a) * (abs(a) - self.deadzone) / (1.0 - self.deadzone)
+        lin_map = lambda x: ((high - low) / 2) * x + ((high + low) / 2)
+        return lin_map(a)
 
-        # --- Reach ---
-        r_plus = max(1e-6, high - h)
-        r_minus = max(1e-6, h - low)
 
-        # --- Nonlinear squash ---
-        mag = abs(a_eff) ** self.power
-        squash = np.tanh(self.gain * mag) / np.tanh(self.gain)
-
-        return float(np.clip(h + r_plus * squash if a_eff >= 0 else h - r_minus * squash, low, high))
-
+        if abs(lin_map(a) - self.homing_position) < self.deadzone:
+            return (high + low) / 2
+        else:
+            return lin_map(a)
 
 class Agent:
     def __init__(self, physics_client, config: Config, action_space_size: int, spawn_height: float):
