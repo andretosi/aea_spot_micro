@@ -91,12 +91,9 @@ class SpotmicroEnv(gym.Env):
         pybullet.resetSimulation(physicsClientId=self.physics_client)
         pybullet.setGravity(0, 0, -9.81, physicsClientId=self.physics_client)
         pybullet.setTimeStep(1/self._SIM_FREQUENCY, physicsClientId=self.physics_client)
-        pybullet.setTimeStep(1/self._SIM_FREQUENCY, physicsClientId=self.physics_client)
         pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
         
         self._terrain = Terrain(self.physics_client, Config(terrainConfig))
-
-        
 
         self._terrain_evo_coefficients = np.array([self.config.c_potholes, self.config.c_ridges, self.config.c_roughness])
         self._terrain.generate(self._terrain_evo_coefficients)
@@ -231,7 +228,7 @@ class SpotmicroEnv(gym.Env):
                 - info (dict): Contains auxiliary diagnostic information.
         """
         #Slow down the control loop
-        if self._episode_step_counter % int(self._SIM_FREQUENCY / self._CONTROL_FREQUENCY) == 0: # apply new action
+        if (self._episode_step_counter % int(self._SIM_FREQUENCY / self._CONTROL_FREQUENCY)) == 0: # apply new action
             observation = self._step_simulation(action)
             reward, reward_info = self._calculate_reward(action)
         else:                                                                         # reuse last action
