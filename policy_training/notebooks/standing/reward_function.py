@@ -17,7 +17,7 @@ class RewardState:
 
 def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]:
 
-    rewards = np.clip(np.array([env.reward_state.a * a**2 + env.reward_state.b * a + env.reward_state.c for a in action]), 0.0, 1.0)
+    rewards = np.clip(np.array([env.reward_state.a * a**2 + env.reward_state.b * a + env.reward_state.c for a in action]), -0.5, 1.0)
     action_reward = np.mean(rewards)
     #MIGHT TRY WITH JOINT POSITIONS INSTEAD OF ACTIONS
 
