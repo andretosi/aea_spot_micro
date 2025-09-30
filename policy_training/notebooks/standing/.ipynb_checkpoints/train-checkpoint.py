@@ -24,8 +24,8 @@ from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.logger import configure
 
 # ========= CONFIG ==========
-TOTAL_STEPS = 2_000_000
-run = "stand2"
+TOTAL_STEPS = 4_000_000
+run = "stand"
 log_dir = f"./logs/{run}"
 
 def clipped_linear_schedule(initial_value, min_value=1e-5):
