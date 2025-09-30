@@ -62,15 +62,17 @@ class Joint:
         """Map action ∈ [-1,1] → joint position."""
         a = float(np.clip(action, -1.0, 1.0))
         low, high = self.limits
+        norm_hp = self.from_position_to_action(self.homing_position)
 
-        lin_map = lambda x: ((high - low) / 2) * x + ((high + low) / 2)
-        return lin_map(a)
+        lin_map = lambda x, xa, ya, xb, yb: yb + (yb - ya) / (xb - xa) * (x - xb)
 
-
-        if abs(lin_map(a) - self.homing_position) < self.deadzone:
-            return (high + low) / 2
+        if abs(a - norm_hp) < self.deadzone:
+            return self.homing_position
+        elif (a - norm_hp) < 0:
+            return lin_map(a, -1, low, norm_hp-self.deadzone, self.homing_position)
         else:
-            return lin_map(a)
+            return lin_map(a, 1, high, norm_hp+self.deadzone, self.homing_position)
+
 
 class Agent:
     def __init__(self, physics_client, config: Config, action_space_size: int, spawn_height: float):
@@ -117,6 +119,8 @@ class Agent:
         for idx, joint in enumerate(self._motor_joints):
             assert joint.id == pybullet.getJointInfo(self._robot_id, joint.id)[0], \
                 f"Joint index mismatch at position {idx}"
+        
+        self.default_actions = np.array([j.from_position_to_action(j.homing_position) for j in self.motor_joints])
 
 
     def reset(self, spawn_heigt: float):

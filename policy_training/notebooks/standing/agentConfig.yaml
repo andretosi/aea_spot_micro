@@ -13,15 +13,15 @@ homing_pitch: -0.065 #Tilt body slightly forward for stability
 
 #Mobility parameters: gains, deadzones, power
 shoulder_gain: 0.9
-shoulder_deadzone: 0.07
+shoulder_deadzone: 0.05
 shoulder_power: 2
 
 leg_gain: 0.8
-leg_deadzone: 0.075
+leg_deadzone: 0.05
 leg_power: 2.2
 
 foot_gain: 0.65
-foot_deadzone: 0.075
+foot_deadzone: 0.05
 foot_power: 2.3
 
 # <--  OTHER STUFF -->

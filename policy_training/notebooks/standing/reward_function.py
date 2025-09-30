@@ -5,26 +5,42 @@ from SpotmicroEnv import SpotmicroEnv
 class RewardState:
     def __init__(self):
         self.prev_contacts = set()
-        self.a = -2
-        self.b = 0
-        self.c = 0
+        self.a = -5.0   # controls steepness of parabola
+
+        # will hold homing positions in raw joint space
+        self.homing_positions = None
     
     def populate(self, env: SpotmicroEnv):
-        norm_hp = np.array([float(j.from_position_to_action(j.homing_position)) for j in env.agent.motor_joints])
-        self.b = -2 * self.a * norm_hp
-        self.c = 1 - 2 * np.square(norm_hp) + 4*norm_hp
+        # Store raw homing positions for each motor joint
+        self.homing_positions = np.array([
+            float(j.homing_position) for j in env.agent.motor_joints
+        ])
         return
 
 def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]:
+    # === Work in joint space directly ===
+    positions = [j.from_action_to_position(a) for j, a in zip(env.agent.motor_joints, action)]
 
-    rewards = np.clip(np.array([env.reward_state.a * a**2 + env.reward_state.b * a + env.reward_state.c for a in action]), 0.0, 1.0)
-    action_reward = np.mean(rewards)
-    #MIGHT TRY WITH JOINT POSITIONS INSTEAD OF ACTIONS
+    # Parabola centered at homing position
+    diffs = positions - env.reward_state.homing_positions
+    rewards = env.reward_state.a * np.square(diffs) + 1.0
 
-    # === Final Reward ===
+    # Clip to desired range
+    rewards = np.clip(rewards, -0.5, 1.0)
+
+    pos_reward = np.mean(rewards)
+
+    # === NEW: Torque penalty ===
+    efforts = np.array([j.effort for j in env.agent.motor_joints])
+    max_torque = np.array([j.max_torque for j in env.agent.motor_joints])
+    normalized_effort = np.mean((efforts / max_torque) ** 2)  # normalized quadratic cost
+
+    # === Final reward ===
     reward_dict = {
-        "action_reward": 2 * action_reward,
+        "action_reward": 2.0 * pos_reward,
+        "effort_penalty": -1 * normalized_effort,
     }
+
     total_reward = sum(reward_dict.values())
 
     env.log_rewards(reward_dict)
