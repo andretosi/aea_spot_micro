@@ -24,7 +24,7 @@ from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.logger import configure
 
 # ========= CONFIG ==========
-TOTAL_STEPS = 5_000_000
+TOTAL_STEPS = 3_000_000
 run = "stand"
 log_dir = f"./logs/{run}"
 
