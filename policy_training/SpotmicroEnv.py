@@ -7,20 +7,143 @@ import inspect, os, pickle, warnings
 from Config import Config
 from Agent import Agent
 from Terrain import Terrain
+"""
+DOMANDE
+1) perché ConfigEnv e Config class sono separate nel codice?
 
+"""
+"""
+This class inherits the Config class.
+First it creates and inizializes the attributes that show up in the .yaml
+file given in input for the constructor.
+Then it adds additional three attributes shown in the attributes array. 
+"""
 class ConfigEnv(Config):
     def __init__(self, filename: str):
         super().__init__(filename)
-
+        #these attributes are used to configure the terrain
         attributes = ["c_potholes", "c_ridges", "c_roughness"]
         for attr in attributes:
             if not hasattr(self, attr):
                 setattr(self, attr, 0.0)
         
 
+"""
+the SpotMicroEnv class inherits the gym.Env class and overrides his methods in order
+to create an interface between Stable Baselines3 and pybullet:
 
+SB3 <-> Env <-> Pybullet
+
+1) ATTRIBUTES
+These two attributes come from the gym.Env class
+- observation_space: the Space object corresponding to valid observations
+- action_space: The Space object corresponding to valid actions
+
+These are the most important attributes that describe the SpotMicroEnv class:
+_OBS_SPACE_SIZE: size of the space vector
+_ACT_SPACE_SIZE: size of the action vector, returned by the neuralnet
+_target_state: dictionary that defines the ranges of height and pitch/roll in whitch the robot has to stay to
+               not terminate the episode. The values are taken from the envConfig.yaml file, "Target Values" section
+_reward_fn:
+
+physics_client: This object comes from the PyBullet class, and is the one who is given as input to
+                most of the pyBullet methods. 
+
+_terrain: This object belongs to the Terrain class, defined in the Terrain.py file. It contains all the info about 
+          the terrain of the simulation. It takes the physics_client as input to update the ground of the simulation,
+          other parameters are defined in the terrainConfig.yaml file.
+_agent: 
+
+2) METHODS
+Here is a list of the methods of the gym.Env class that are overriden:
+- step: Method exposed and used by SB3 to execute one time step within the environment.
+    
+    input:
+        action (gym.spaces.Box): The action to take in the environment.
+
+    output:
+        tuple containing
+            - observation (np.ndarray): Agent's observation of the environment.
+            - reward (float): Amount of reward returned after previous action.
+            - terminated (bool): Whether the episode naturally ended.
+            - truncated (bool): Whether the episode was artificially terminated.
+            - info (dict): Contains auxiliary diagnostic information. See _get_info()
+
+    The action is taken using _step_simulation(action) method. The control loop is slowed down
+    manually. 
+
+
+
+- reset: resets the environment to an inital state, and returns the firts observation value.
+    More specifically:
+    Resets Agent and Terrain classes using their reset() methods; steps the pybullet
+    simulation a few times until the bot is stable in the initial state. 
+    Returns the initial observation and info dict, see _get_info()
+
+- close: Closes the pybullet simulation, saves the state if a destination path is provided.
+
+- render (ignored)
+
+These are public methods 
+- save_state: saves a dictionary containing useful data about the current state:
+              (total steps counter, previous action, joint state history)
+              The file is stored in _dest_save_file, parameter of the constructor method: src_save_file
+- load_state: loads the dictionary saved by save_state(). The path of the file is a 
+              parameter of the constructor method: dest_save_file
+
+Private methods
+- _step_simulation: accepts an action and returns an observation. This is done by the Agent class:
+                    apply_action(action) -> pybullet.stepSimulation -> sync_state()
+                    Eventually tilts the plane if a variable is set.
+                    Returns the observation using _get_observation().
+
+These methods are used to compute the values that are returned by step() (and other relevant methods):
+- _get_observation (np.ndarray): Agent's observation of the environment.
+        - 0-2: gravity vector
+        - 3: height of the robot
+        - 4-6: linear velocity of the base
+        - 7-9: angular velocity of the base
+        - 10-21: positions of the joints
+        - 22-33: velocities of the joints
+        - 34-81: history
+        - 82-93: previous action
+
+- _calculate_reward (float): Placeholder method that calls the reward function provided as an input.
+
+- _is_target_state (bool): Private method that returns wether the state of the agent is a target state 
+    (one in which to end the simulation) or not. It also returns a penalty to 
+    apply when the specific target condition is met.
+
+- _is_terminated (bool): Function that returns wether an episode was terminated artificially or timed out
+
+- _get_info (dict): Function that returns a dict containing the following fields:
+        - height (of the body)
+        - pitch: (of the base)
+        - episode_step
+"""
 class SpotmicroEnv(gym.Env):
     def __init__(self, envConfig="envConfig.yaml", agentConfig="agentConfig.yaml", terrainConfig="terrainConfig.yaml", use_gui=False, reward_fn=None, reward_state=None, dest_save_file=None, src_save_file=None, writer=None):
+        """
+        Parameters
+        ------------
+        - envConfig : str
+
+        - agentConfig : str
+
+        - terrainConfig : str
+
+        - use_gui : bool
+
+        - reward_fn : ?
+
+        - reward_state : type of data?
+
+        - dest_save_file : ?
+
+        - src_save_file : ?
+
+        - writer: ?
+        """
         super().__init__()
 
         if not isinstance(envConfig, str):
@@ -30,17 +153,21 @@ class SpotmicroEnv(gym.Env):
         if not os.path.isfile(terrainConfig):
             raise FileNotFoundError(f"File {terrainConfig} does not exist")
 
+        #Config object contains only attributes, whitch value can be set frome the .yaml file
         self.config = ConfigEnv(envConfig)
 
         self.physics_client = None
         self.use_gui = use_gui
         self.np_random = None
         self.reward_state = reward_state
-        self._episode_reward_info = None
+        self._episode_reward_info = None #history of the rewards during an episode, used to plot results
         self.writer = writer
 
+        #these two constants will be assigned to the obs_space and action_space attributes
+        #of the gym.Env class
         self._OBS_SPACE_SIZE = 94
         self._ACT_SPACE_SIZE = 12
+        
         self._MAX_EPISODE_LEN = 3000
         self._SIM_FREQUENCY = 240
         self._CONTROL_FREQUENCY = 60
@@ -52,7 +179,7 @@ class SpotmicroEnv(gym.Env):
         self._episode_step_counter = 0
         self._total_steps_counter = 0
 
-        #Declaration of observation and action spaces
+        #Declaration of observation and action spaces (gym.Env native attributes)
         self.observation_space = gym.spaces.Box(
             low = -np.inf, 
             high = np.inf, 
@@ -80,7 +207,7 @@ class SpotmicroEnv(gym.Env):
 
         self._reward_fn = reward_fn
 
-        #Initialize pybullet
+        #Initialize pybullet: connects to the simulation server and sets the initial view
         if self.physics_client is None:
             self.physics_client = pybullet.connect(pybullet.GUI if self.use_gui else pybullet.DIRECT)
             pybullet.resetDebugVisualizerCamera(
@@ -96,12 +223,14 @@ class SpotmicroEnv(gym.Env):
         pybullet.setTimeStep(1/self._SIM_FREQUENCY, physicsClientId=self.physics_client)
         pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
         
+        #Initialize the terrain object
         self._terrain = Terrain(self.physics_client, Config(terrainConfig))
 
         
 
         self._terrain_evo_coefficients = np.array([self.config.c_potholes, self.config.c_ridges, self.config.c_roughness])
         self._terrain.generate(self._terrain_evo_coefficients)
+        #???
         pybullet.changeDynamics(
             bodyUniqueId=self._terrain.terrain_id,
             linkIndex=-1,
@@ -111,6 +240,8 @@ class SpotmicroEnv(gym.Env):
             restitution=0.0,
             physicsClientId=self.physics_client
         )
+
+        #Initialize the agent object
         self._agent = Agent(self.physics_client, Config(agentConfig), self._ACT_SPACE_SIZE, self.config.spawn_height)
 
         self._dest_save = dest_save_file
@@ -133,7 +264,7 @@ class SpotmicroEnv(gym.Env):
             
             self.load_state()
         
-            
+    # a cosa serve????        
     def save_state(self):
         state = {
             "total_steps_counter": self._total_steps_counter,
@@ -146,6 +277,7 @@ class SpotmicroEnv(gym.Env):
         with open(self._dest_save, "wb") as f:
             pickle.dump(state, f)
 
+    # a cosa serve????   
     def load_state(self):
         with open(self._src_file, 'rb') as f:
             state = pickle.load(f)
@@ -166,7 +298,7 @@ class SpotmicroEnv(gym.Env):
             self.physics_client = None
 
         if self._dest_save is not None:
-            self.save_state()
+            self.save_state() #?
 
     def reset(self, seed: int | None = None, options: dict | None = None) -> tuple[np.ndarray, dict]:
         """
@@ -180,7 +312,7 @@ class SpotmicroEnv(gym.Env):
 
         # Reset terrain before agent so ground height is consistent
         self._terrain.reset()
-        if self._terrain.config.evolving:
+        if self._terrain.config.evolving: #evolving attribute not present??? 
             self._terrain.generate(self._schedule_terrain_evo())
         self._agent.reset(self.config.spawn_height)
 
@@ -188,6 +320,9 @@ class SpotmicroEnv(gym.Env):
             self.reward_state.populate(self)
         else:
             print("Reward state is None")
+
+        # la sequenza è: resetto la simulazione impostando i valori base di posizione etc....
+        # poi quali azioni eseguo? a cosa serve questo apply action?
 
         # Let physics settle with homing applied
         for _ in range(5):
@@ -213,6 +348,7 @@ class SpotmicroEnv(gym.Env):
 
         return self._get_observation(), self._get_info()
     
+    # ????
     def seed(self, seed=None):
         self.np_random, seed = gym.utils.seeding.np_random(seed)
         return [seed]
@@ -232,6 +368,7 @@ class SpotmicroEnv(gym.Env):
                 - truncated (bool): Whether the episode was artificially terminated.
                 - info (dict): Contains auxiliary diagnostic information.
         """
+
         #Slow down the control loop
         if self._episode_step_counter % int(self._SIM_FREQUENCY / self._CONTROL_FREQUENCY) == 0: # apply new action
             observation = self._step_simulation(action)
@@ -244,6 +381,7 @@ class SpotmicroEnv(gym.Env):
         truncated = self._is_terminated()
         info = self._get_info()
 
+        #actions that are reused in the control loop still receive a reward and are appended to the episode_reward_info ????
         self._episode_reward_info.append(reward_info)
         if truncated:
             reward += self.config.survival_reward

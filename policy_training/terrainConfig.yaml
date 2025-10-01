@@ -1,5 +1,6 @@
-mode: "flat"
 
+mode: "flat"
+evolving: False
 
 #Tilting plane parameters
 rotation_frequency: 0.04

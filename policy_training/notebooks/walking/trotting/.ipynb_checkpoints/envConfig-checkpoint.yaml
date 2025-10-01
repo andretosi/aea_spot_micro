@@ -1,8 +1,8 @@
 # <-- ENVIRONMENT PARAMETERS -->
 target_height: 0.227
-spawn_height: 0.230 
+spawn_height: 0.230
 
-#Target states: If the agents is in this state, we terminate the simulation.
+#Target states
 min_height: 0.15
 max_height: 0.4
 max_pitchroll: 0.96 #Radians = 55 degrees
@@ -11,9 +11,9 @@ max_pitchroll: 0.96 #Radians = 55 degrees
 max_joint_velocity: 10 #Rad/s
 max_norm_height: 0.235
 max_linear_velocity: 2.0
-max_angular_velocity: 10
+max_angular_velocity: 5
 
 #Termination rewards/penalties
 survival_reward: 3.0
-jump_fall_penalty: -50
+jump_fall_penalty: -100
 tipping_penalty: -2
