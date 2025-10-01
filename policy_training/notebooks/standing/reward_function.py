@@ -13,7 +13,6 @@ class RewardState:
         norm_hp = np.array([float(j.from_position_to_action(j.homing_position)) for j in env.agent.motor_joints])
         for hp in norm_hp:
             self.ms.append(-1 / ((1-self.perc_error) * hp))
-        self.ms = np.array(self.ms)
         
 
 def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]:
