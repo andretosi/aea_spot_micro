@@ -67,5 +67,5 @@ model.learn(
     reset_num_timesteps=False,
     callback=checkpoint_callback
 )
-model.save(f"ppo_{run}")
+model.save(f"policies/ppo_{run}")
 env.close()
