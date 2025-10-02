@@ -19,7 +19,7 @@ class RewardState:
 
 def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]:
     # === Work in joint space directly ===
-    positions = np.array(env.agent.state.joint.positions)
+    positions = [j.from_action_to_position(a) for j, a in zip(env.agent.motor_joints, action)]
 
     # Parabola centered at homing position
     diffs = positions - env.reward_state.homing_positions
