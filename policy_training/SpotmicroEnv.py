@@ -186,7 +186,7 @@ class SpotmicroEnv(gym.Env):
 
         # Let physics settle with homing applied
         for _ in range(5):
-            self._agent.apply_action(self._agent.default_position) # Zeros because they map to homing positions
+            self._agent.apply_action(self._agent.default_actions) # Zeros because they map to homing positions
             pybullet.stepSimulation(physicsClientId=self.physics_client)
             self._agent.sync_state()
 
