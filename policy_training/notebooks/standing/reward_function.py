@@ -30,10 +30,17 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
 
     pos_reward = np.mean(rewards)
 
-    # === Final Reward ===
+    # === NEW: Torque penalty ===
+    efforts = np.array([j.effort for j in env.agent.motor_joints])
+    max_torque = np.array([j.max_torque for j in env.agent.motor_joints])
+    normalized_effort = np.mean((efforts / max_torque) ** 2)  # normalized quadratic cost
+
+    # === Final reward ===
     reward_dict = {
-        "position_reward": 2.0 * pos_reward,
+        "action_reward": 2.0 * pos_reward,
+        "effort_penalty": -1 * normalized_effort,
     }
+
     total_reward = sum(reward_dict.values())
 
     env.log_rewards(reward_dict)

@@ -119,6 +119,8 @@ class Agent:
         for idx, joint in enumerate(self._motor_joints):
             assert joint.id == pybullet.getJointInfo(self._robot_id, joint.id)[0], \
                 f"Joint index mismatch at position {idx}"
+        
+        self.default_position = np.array([j.from_position_to_action(j.homing_position) for j in self.motor_joints])
 
 
     def reset(self, spawn_heigt: float):
