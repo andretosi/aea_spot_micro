@@ -26,7 +26,7 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
 
     # Errors
     lin_vel_error = np.linalg.norm(env.target_lin_velocity - env.agent.state.linear_velocity) ** 2
-    ang_vel_error = np.linalg.norm((env.target_ang_velocity - env.agent.state.angular_velocity))** 2
+    ang_vel_error = np.linalg.norm((env.target_ang_velocity - env.agent.state.angular_velocity) / env.config.max_angular_velocity)** 2
     deviation_penalty = np.linalg.norm(env.agent.state.joint_positions - env.agent.homing_positions) ** 2
     height_penalty = (env.agent.state.base_position[2] - env.config.target_height) ** 2
     stabilization_penalty = roll ** 2 + pitch ** 2
@@ -34,21 +34,25 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     action_rate = np.mean(action - env.agent.previous_action) ** 2
 
     # Derived penalties
-    percentage_error = 0.3
-    alpha = 1 / (percentage_error**2 * np.linalg.norm(env.target_lin_velocity))
-    lin_vel_reward = max(1 - env.reward_state.progress(env) * alpha * lin_vel_error, -1.0)
+    lin_vel_reward = max(1 - 1.75 * lin_vel_error, -1.0)
     drift_penalty = np.linalg.norm(perp_velocity) ** 2
+
+    # Effort penalty for "backward compatibility" with standing policy
+    efforts = np.array([j.effort for j in env.agent.motor_joints])
+    max_torque = np.array([j.max_torque for j in env.agent.motor_joints])
+    normalized_effort = np.mean((efforts / max_torque) ** 2)  # normalized quadratic cost
 
 
     # === Final Reward ===
     reward_dict = {
-        "linear_vel_reward": 11 * lin_vel_reward,
+        "linear_vel_reward": 12.5 * lin_vel_reward,
         "height_penalty": -3 * min(height_penalty, 1.0),
         "stabilization_penalty": -3 * min(stabilization_penalty, 1.0),
         "drift_penalty": -2 * drift_penalty,
         "angular_vel_penalty": -1.5 * ang_vel_error,
         "action_rate_penalty": -1 * action_rate,
-        "deviation_penalty": -0.5 * deviation_penalty,
+        "effort_penalty": -1 * normalized_effort,
+        "deviation_penalty": -1 * deviation_penalty,
     }
     total_reward = sum(reward_dict.values())
 
