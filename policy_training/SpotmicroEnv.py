@@ -220,13 +220,10 @@ class SpotmicroEnv(gym.Env):
         pybullet.resetSimulation(physicsClientId=self.physics_client)
         pybullet.setGravity(0, 0, -9.81, physicsClientId=self.physics_client)
         pybullet.setTimeStep(1/self._SIM_FREQUENCY, physicsClientId=self.physics_client)
-        pybullet.setTimeStep(1/self._SIM_FREQUENCY, physicsClientId=self.physics_client)
         pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
         
         #Initialize the terrain object
         self._terrain = Terrain(self.physics_client, Config(terrainConfig))
-
-        
 
         self._terrain_evo_coefficients = np.array([self.config.c_potholes, self.config.c_ridges, self.config.c_roughness])
         self._terrain.generate(self._terrain_evo_coefficients)
@@ -326,7 +323,7 @@ class SpotmicroEnv(gym.Env):
 
         # Let physics settle with homing applied
         for _ in range(5):
-            self._agent.apply_action(np.zeros(len(self._agent.motor_joints), dtype=np.float32)) # Zeros because they map to homing positions
+            self._agent.apply_action(self._agent.default_actions) # Zeros because they map to homing positions
             pybullet.stepSimulation(physicsClientId=self.physics_client)
             self._agent.sync_state()
 
@@ -370,7 +367,7 @@ class SpotmicroEnv(gym.Env):
         """
 
         #Slow down the control loop
-        if self._episode_step_counter % int(self._SIM_FREQUENCY / self._CONTROL_FREQUENCY) == 0: # apply new action
+        if (self._episode_step_counter % int(self._SIM_FREQUENCY / self._CONTROL_FREQUENCY)) == 0: # apply new action
             observation = self._step_simulation(action)
             reward, reward_info = self._calculate_reward(action)
         else:                                                                         # reuse last action
@@ -486,9 +483,9 @@ class SpotmicroEnv(gym.Env):
         #NORMALIZATION PARAMETERS
         obs = []
         obs.extend(self._get_gravity_vector())
-        obs.append((self._agent.state.base_position[2] - self.config.target_height) / self.config.max_norm_height) # Normalized w respect a hypotetical max height of 235 cm
-        obs.extend(self._agent.state.linear_velocity / self.config.max_linear_velocity) # Normalized w respect to a hypotetical max velocity (2 m/s)
-        obs.extend(self._agent.state.angular_velocity / self.config.max_angular_velocity) # Normalized w respect to a hypotetical max ang velocity (10 rad/s)
+        obs.append((self._agent.state.base_position[2] - self.config.target_height) / self.config.max_norm_height) # Normalized w respect a hypotetical max height
+        obs.extend(self._agent.state.linear_velocity / self.config.max_linear_velocity) # Normalized w respect to a hypotetical max velocity
+        obs.extend(self._agent.state.angular_velocity / self.config.max_angular_velocity) # Normalized w respect to a hypotetical max ang velocity
         obs.extend(self._joint_positions_norm(self._agent.state.joint_positions)) 
         obs.extend(self._joint_velocities_norm(self._agent.state.joint_velocities))
         obs.extend(self._joint_positions_norm(self._agent.joint_history[1][0]))
@@ -598,3 +595,7 @@ class SpotmicroEnv(gym.Env):
         Return the current number of steps
         """
         return self._total_steps_counter
+
+    @property
+    def sim_frequency(self) -> int:
+        return self._SIM_FREQUENCY

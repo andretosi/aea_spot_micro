@@ -17,15 +17,15 @@ if grandparent_dir not in sys.path:
 
 from SpotmicroEnv import SpotmicroEnv
 from reward_function import reward_function, RewardState
+
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.logger import configure
 
 # ========= CONFIG ==========
-TOTAL_STEPS = 10_000_000
-run = "walk"
-base="trot"
-
+TOTAL_STEPS = 3_000_000
+run = "stand"
 log_dir = f"./logs/{run}"
 
 def clipped_linear_schedule(initial_value, min_value=1e-5):
@@ -43,21 +43,25 @@ checkpoint_callback = CheckpointCallback(
 env = SpotmicroEnv(
     use_gui=False,
     reward_fn=reward_function, 
-    reward_state=RewardState(),
-    src_save_file=f"{base}.pkl",
+    reward_state=RewardState(), 
     dest_save_file=f"{run}.pkl"
 )
 check_env(env, warn=True)
 
 # ========= MODEL ==========
-model = PPO.load(f"ppo_{base}")
-model.set_env(env)
-model.tensorboard_log = log_dir
+model = PPO(
+    "MlpPolicy", 
+    env,
+    verbose=0,   # no default printouts
+    learning_rate=clipped_linear_schedule(3e-4),
+    ent_coef=0.001,
+    clip_range=0.1,
+    tensorboard_log=log_dir,
+)
 
 # Custom logger: ONLY csv + tensorboard (no stdout table)
 new_logger = configure(log_dir, ["csv", "tensorboard"])
 model.set_logger(new_logger)
-
 model.learn(
     total_timesteps=TOTAL_STEPS,
     reset_num_timesteps=False,

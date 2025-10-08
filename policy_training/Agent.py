@@ -82,26 +82,24 @@ class Joint:
             self.power = config.foot_power
     # the neural network outputs a NORALIZED vector with the action that the robot should perform.
     # This function converts the vector into a joint position, used by pybullet to move the robot.
+    def from_position_to_action(self, pos: float) -> float:
+        high, low = self.limits
+        return (2*pos - high - low) / (high - low)
+
     def from_action_to_position(self, action: float) -> float:
         """Map action ∈ [-1,1] → joint position."""
         a = float(np.clip(action, -1.0, 1.0))
         low, high = self.limits
-        h = self.homing_position
+        norm_hp = self.from_position_to_action(self.homing_position)
 
-        # --- Deadzone ---
-        if abs(a) < self.deadzone:
-            return float(np.clip(h, low, high))
-        a_eff = np.sign(a) * (abs(a) - self.deadzone) / (1.0 - self.deadzone)
+        lin_map = lambda x, xa, ya, xb, yb: yb + (yb - ya) / (xb - xa) * (x - xb)
 
-        # --- Reach ---
-        r_plus = max(1e-6, high - h)
-        r_minus = max(1e-6, h - low)
-
-        # --- Nonlinear squash ---
-        mag = abs(a_eff) ** self.power
-        squash = np.tanh(self.gain * mag) / np.tanh(self.gain)
-
-        return float(np.clip(h + r_plus * squash if a_eff >= 0 else h - r_minus * squash, low, high))
+        if abs(a - norm_hp) < self.deadzone:
+            return self.homing_position
+        elif (a - norm_hp) < 0:
+            return lin_map(a, -1, low, norm_hp-self.deadzone, self.homing_position)
+        else:
+            return lin_map(a, 1, high, norm_hp+self.deadzone, self.homing_position)
 
 
 class Agent:
@@ -208,11 +206,13 @@ class Agent:
         for idx, joint in enumerate(self._motor_joints):
             assert joint.id == pybullet.getJointInfo(self._robot_id, joint.id)[0], \
                 f"Joint index mismatch at position {idx}"
+        
+        self.default_actions = np.array([j.from_position_to_action(j.homing_position) for j in self.motor_joints])
 
 
     def reset(self, spawn_heigt: float):
         """
-        Reset agent state and simulation.
+        Reset agent state
         """
 
         self._state = AgentState(
