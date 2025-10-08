@@ -212,6 +212,7 @@ class SpotmicroEnv(gym.Env):
         self.np_random, seed = gym.utils.seeding.np_random(seed)
         return [seed]
 
+    # TODO: BUG fix here. Decouple logic steps from phisical sim steps. WOuld this loop work in a real setting? no, because what reward would you give in between the control steps? it is not feasible to calculate reward at 240Hz. So, step once giving an action and calculating the reward (on which action of the batch?), then step x steps in the sim all for one spotenv.step() call
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
         """
         Method exposed and used bby SB3 to execute one time step within the environment.
