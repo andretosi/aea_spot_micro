@@ -16,9 +16,7 @@ class RewardState:
         return min(env.num_steps / self.total_training_steps, 1.0)
 
 def fade_in(current_step, start, scale=2.0):
-    if current_step < start:
-        return 0.0
-    return 1.0 - np.exp(-scale * (current_step - start) / 1_000_000)
+    return np.clip(1.0 - np.exp(-scale * (current_step - start) / 1_000_000), 0.0, 1.0)
 
 def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]:
 

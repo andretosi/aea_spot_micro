@@ -52,6 +52,7 @@ check_env(env, warn=True)
 # ========= MODEL ==========
 model = PPO.load(f"ppo_{base}")
 model.set_env(env)
+model.n_steps = 1024
 model.tensorboard_log = log_dir
 
 # Custom logger: ONLY csv + tensorboard (no stdout table)
