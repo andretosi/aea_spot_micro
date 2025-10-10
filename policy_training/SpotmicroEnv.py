@@ -40,7 +40,7 @@ class SpotmicroEnv(gym.Env):
 
         self._OBS_SPACE_SIZE = 94
         self._ACT_SPACE_SIZE = 12
-        self._MAX_EPISODE_LEN = 3000
+        self._MAX_EPISODE_LEN = 600
         self._SIM_FREQUENCY = 240
         self._CONTROL_FREQUENCY = 60
         self._JOINT_HISTORY_MAX_LEN = 5
@@ -461,3 +461,7 @@ class SpotmicroEnv(gym.Env):
     @property
     def sim_frequency(self) -> int:
         return self._SIM_FREQUENCY
+    
+    @property
+    def max_episode_len(self) ->int:
+        return self._MAX_EPISODE_LEN
