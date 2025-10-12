@@ -57,6 +57,7 @@ model = PPO(
     ent_coef=0.001,
     clip_range=0.1,
     tensorboard_log=log_dir,
+    n_steps=1024
 )
 
 # Custom logger: ONLY csv + tensorboard (no stdout table)
