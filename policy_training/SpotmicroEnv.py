@@ -336,7 +336,7 @@ class SpotmicroEnv(gym.Env):
         - 3: height of the robot
         - 4-6: linear velocity of the base
         - 7-9: angular velocity of the base
-        - 10-21: positions of the joints
+        - 10-21: positions of the joints, ADD NOISE?
         - 22-33: velocities of the joints
         - 34-81: history
         - 82-93: previous action
