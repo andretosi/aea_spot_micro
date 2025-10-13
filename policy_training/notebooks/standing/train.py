@@ -57,7 +57,7 @@ model = PPO(
     ent_coef=0.001,
     clip_range=0.1,
     tensorboard_log=log_dir,
-    n_steps=2048
+    n_steps=2048,
     batch_size=64
 )
 
