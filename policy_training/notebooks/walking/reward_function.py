@@ -51,13 +51,13 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     # legati a constraint fisiche, non a constraint di "scomodità", quelle verrano decie dalla parte
     # che si occupa del risparmio energetico.
 
-    # Penalità per la deviazione dell'altezza della base del robot dall'altezza target.
-    height_penalty = (env.agent.state.base_position[2] - env.config.target_height) ** 2
-    # target height come la calcoliamo su un terreno non piatto? Oltrettutto
-    # è giusto settare una target height? Soprattutto su un terreno accidentato
-    # dove ogni gamba è ad un altezza diversa. Forse va calcolato in base ad una sorta
-    # di piano immaginario che collega le zampe? una sorta di percezione di se stesso
-    # del robot?
+    # === HEIGHT PENALTY: Approccio basato su Propriocezione===
+    # Calcola l'altezza del corpo RELATIVA al centroide dei piedi, proiettata
+    # lungo l'asse verticale del robot. Questo approccio è robusto su terreni
+    # accidentati perché non dipende dall'altezza assoluta (Z globale).
+    body_to_feet_height = env.agent.get_body_to_feet_height_projected()
+    height_penalty = (body_to_feet_height - env.config.target_body_to_feet_height) ** 2
+
 
     # Calcola la variazione media dell'azione rispetto all'azione precedente per penalizzare movimenti bruschi.
     action_rate = np.mean(action - env.agent.previous_action) ** 2

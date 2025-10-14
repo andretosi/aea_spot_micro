@@ -1,5 +1,5 @@
 # <-- ENVIRONMENT PARAMETERS -->
-target_height: 0.227
+target_body_to_feet_height: 0.2 # Previous 0.227
 spawn_height: 0.230
 
 #Target states

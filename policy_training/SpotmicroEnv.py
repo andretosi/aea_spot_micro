@@ -44,6 +44,9 @@ class SpotmicroEnv(gym.Env):
         self._CONTROL_FREQUENCY = 60
         self._JOINT_HISTORY_MAX_LEN = 5
 
+        # TODO @andretosi fare un sistema che le cambia dinamicamente,
+        # in modo che in futuro possano essere inserite tramite joistick
+        
         self._TARGET_LINEAR_VELOCITY = np.array([0.3, 0.0, 0.0])
         self._TARGET_ANGULAR_VELOCITY = np.array([0.0, 0.0, 0.0])
 
@@ -343,7 +346,7 @@ class SpotmicroEnv(gym.Env):
         #NORMALIZATION PARAMETERS
         obs = []
         obs.extend(self._get_gravity_vector())
-        obs.append((self._agent.state.base_position[2] - self.config.target_height) / self.config.max_norm_height) # Normalized w respect a hypotetical max height
+        obs.append((self._agent.state.base_position[2] - self.config.target_body_to_feet_height) / self.config.max_norm_height) # Normalized w respect a hypotetical max height
         obs.extend(self._agent.state.linear_velocity / self.config.max_linear_velocity) # Normalized w respect to a hypotetical max velocity
         obs.extend(self._agent.state.angular_velocity / self.config.max_angular_velocity) # Normalized w respect to a hypotetical max ang velocity
         obs.extend(self._joint_positions_norm(self._agent.state.joint_positions)) 
