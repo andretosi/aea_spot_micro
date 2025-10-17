@@ -7,6 +7,7 @@ import inspect, os, pickle, warnings
 from Config import Config
 from Agent import Agent
 from Terrain import Terrain
+import time
 
 class ConfigEnv(Config):
     def __init__(self, filename: str):
@@ -212,6 +213,7 @@ class SpotmicroEnv(gym.Env):
         self.np_random, seed = gym.utils.seeding.np_random(seed)
         return [seed]
 
+    # TODO: BUG fix here. Decouple logic steps from phisical sim steps. WOuld this loop work in a real setting? no, because what reward would you give in between the control steps? it is not feasible to calculate reward at 240Hz. So, step once giving an action and calculating the reward (on which action of the batch?), then step x steps in the sim all for one spotenv.step() call
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
         """
         Method exposed and used bby SB3 to execute one time step within the environment.
@@ -227,16 +229,13 @@ class SpotmicroEnv(gym.Env):
                 - truncated (bool): Whether the episode was artificially terminated.
                 - info (dict): Contains auxiliary diagnostic information.
         """
-        #Slow down the control loop
-        if (self._episode_step_counter % int(self._SIM_FREQUENCY / self._CONTROL_FREQUENCY)) == 0: # apply new action
-            observation = self._step_simulation(action)
-            reward, reward_info = self._calculate_reward(action)
-        else:                                                                         # reuse last action
-            observation = self._step_simulation(self._agent.previous_action)
-            reward, reward_info = self._calculate_reward(self._agent.previous_action)
+
+        observation = self._step_simulation(action)
+        self._episode_step_counter += 1 #updates the step counter (used to check against timeouts)
+        reward, reward_info = self._calculate_reward(action)
 
         terminated, term_penalty = self._is_target_state() # checks wether the agent has fallen or not
-        truncated = self._is_terminated()
+        truncated = self._is_truncated()
         info = self._get_info()
 
         self._episode_reward_info.append(reward_info)
@@ -283,17 +282,20 @@ class SpotmicroEnv(gym.Env):
         """
         Private method that calls the API to execute the given action in PyBullet.
         It should sinchronize the state of the agent in the simulation with the state recorded here!
-        Accepts an action and returns an observation
+        Accepts an action and returns an observation.
+        The simulation is stepped multiple times to slow down the control loop
         """
         # Execute the action in pybullet
         self._agent.apply_action(action)
-        
-        self._episode_step_counter += 1 #updates the step counter (used to check against timeouts)
-        
+                
         if self._terrain.config.mode == "tilting":
             self._terrain.tilt_plane()
         
-        pybullet.stepSimulation()
+        for _ in range(self._SIM_FREQUENCY // self._CONTROL_FREQUENCY):
+            pybullet.stepSimulation()
+            if self.use_gui:
+                time.sleep(1/70.) # MAGIC NUMBER, MAKES THE SIMULATION LOOK REAL-TIME (not slow, not too fast)
+
         self._agent.sync_state()
 
         return self._get_observation()
@@ -334,7 +336,7 @@ class SpotmicroEnv(gym.Env):
         - 3: height of the robot
         - 4-6: linear velocity of the base
         - 7-9: angular velocity of the base
-        - 10-21: positions of the joints
+        - 10-21: positions of the joints, ADD NOISE?
         - 22-33: velocities of the joints
         - 34-81: history
         - 82-93: previous action
@@ -374,7 +376,7 @@ class SpotmicroEnv(gym.Env):
         else:
             return (False, 0)
     
-    def _is_terminated(self) -> bool:
+    def _is_truncated(self) -> bool:
         """
         Function that returns wether an episode was terminated artificially or timed out
         """
@@ -459,3 +461,7 @@ class SpotmicroEnv(gym.Env):
     @property
     def sim_frequency(self) -> int:
         return self._SIM_FREQUENCY
+    
+    @property
+    def max_episode_len(self) ->int:
+        return self._MAX_EPISODE_LEN
