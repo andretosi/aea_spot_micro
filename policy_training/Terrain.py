@@ -11,7 +11,7 @@ class Terrain:
         self._terrain_id = None
         self._tilt_step = 0
 
-    def generate(self, coefficients: tuple[float, float, float] = (0.0, 0.0, 0.0)) -> None:    
+    def generate(self, coefficients: tuple[float, float, float] = (0.0, 0.0, 0.0)) -> None:
         if self._config.mode == "flat":
             self._terrain_id = pybullet.loadURDF(
                 "plane.urdf",
