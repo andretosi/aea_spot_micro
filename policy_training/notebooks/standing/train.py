@@ -24,7 +24,7 @@ from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.logger import configure
 
 # ========= CONFIG ==========
-TOTAL_STEPS = 3_000_000
+TOTAL_STEPS = 2_000_000
 run = "stand"
 log_dir = f"./logs/{run}"
 
@@ -57,6 +57,8 @@ model = PPO(
     ent_coef=0.001,
     clip_range=0.1,
     tensorboard_log=log_dir,
+    n_steps=2048,
+    batch_size=64
 )
 
 # Custom logger: ONLY csv + tensorboard (no stdout table)
