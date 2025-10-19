@@ -39,13 +39,13 @@ class Joint:
         name : str
             name of the joint.
         joint_id: int
-            ???
-        joint_link_idx: int
             position of the joint in the array with all the joints
+        joint_link_idx: int
+            internal id used by pybullet to identify the link associated with the joint
         joint_type: str
-            ???
+            type of the joint: shoulder, leg, foot
         limits: tuple
-            ???
+            (min, max) positional limits of the joint
         config: Config
             set of attributes taken from agentConfig.yaml
         """
@@ -289,7 +289,7 @@ class Agent:
     def _get_feet_contacts(self) -> set:
         """
         This method saves which feet are touching the ground (part of the state vector)
-        output type and size ????
+        returns a set of link indices of the feet in contact with the ground
         """
         contact_points = pybullet.getContactPoints(
             bodyA=self._robot_id,

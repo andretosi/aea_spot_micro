@@ -127,22 +127,20 @@ class SpotmicroEnv(gym.Env):
         Parameters
         ------------
         - envConfig : str
-
+r
         - agentConfig : str
 
         - terrainConfig : str
 
         - use_gui : bool
 
-        - reward_fn : ?
+        - reward_fn : callable
 
-        - reward_state : type of data?
+        - reward_state : holds auxiliary data for the reward function. Handled by the reward function.
 
-        - dest_save_file : ?
+        - dest_save_file : string representing the path of the file where to save the state of the environment when close() is called.
 
-        - src_save_file : ?
-
-        - writer: ?
+        - src_save_file : string representing the path of the file from which to load the state of the environment.
         """
         super().__init__()
 
@@ -227,7 +225,7 @@ class SpotmicroEnv(gym.Env):
 
         self._terrain_evo_coefficients = np.array([self.config.c_potholes, self.config.c_ridges, self.config.c_roughness])
         self._terrain.generate(self._terrain_evo_coefficients)
-        #???
+   
         pybullet.changeDynamics(
             bodyUniqueId=self._terrain.terrain_id,
             linkIndex=-1,
@@ -261,7 +259,7 @@ class SpotmicroEnv(gym.Env):
             
             self.load_state()
         
-    # a cosa serve????        
+    # useful data saved when close() is called      
     def save_state(self):
         state = {
             "total_steps_counter": self._total_steps_counter,
@@ -274,7 +272,7 @@ class SpotmicroEnv(gym.Env):
         with open(self._dest_save, "wb") as f:
             pickle.dump(state, f)
 
-    # a cosa serve????   
+    # loads the data saved by save_state() 
     def load_state(self):
         with open(self._src_file, 'rb') as f:
             state = pickle.load(f)
@@ -295,7 +293,7 @@ class SpotmicroEnv(gym.Env):
             self.physics_client = None
 
         if self._dest_save is not None:
-            self.save_state() #?
+            self.save_state() 
 
     def reset(self, seed: int | None = None, options: dict | None = None) -> tuple[np.ndarray, dict]:
         """
@@ -309,7 +307,7 @@ class SpotmicroEnv(gym.Env):
 
         # Reset terrain before agent so ground height is consistent
         self._terrain.reset()
-        if self._terrain.config.evolving: #evolving attribute not present??? 
+        if self._terrain.config.evolving: 
             self._terrain.generate(self._schedule_terrain_evo())
         self._agent.reset(self.config.spawn_height)
 
@@ -318,8 +316,6 @@ class SpotmicroEnv(gym.Env):
         else:
             print("Reward state is None")
 
-        # la sequenza è: resetto la simulazione impostando i valori base di posizione etc....
-        # poi quali azioni eseguo? a cosa serve questo apply action?
 
         # Let physics settle with homing applied
         for _ in range(5):
@@ -345,7 +341,7 @@ class SpotmicroEnv(gym.Env):
 
         return self._get_observation(), self._get_info()
     
-    # ????
+    # required by gym.Env (not used)
     def seed(self, seed=None):
         self.np_random, seed = gym.utils.seeding.np_random(seed)
         return [seed]
