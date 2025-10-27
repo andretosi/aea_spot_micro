@@ -1,6 +1,6 @@
 # <-- ENVIRONMENT PARAMETERS -->
-target_height: 0.227
-spawn_height: 0.230 
+target_body_to_feet_height: 0.2 # Previous 0.227
+spawn_height: 0.230
 
 #Target states: If the agents is in this state, we terminate the simulation.
 min_height: 0.15

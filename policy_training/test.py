@@ -9,10 +9,13 @@ from walking_reward_function import reward_function, RewardState
 
 env = SpotmicroEnv(use_gui=True, reward_fn=reward_function, reward_state=RewardState())
 obs, _ = env.reset()
-
+print("RESET")
+time.sleep(2)
+print("GO")
 for _ in range(3001):
+    time.sleep(1)
     action = env.action_space.sample()  # Take a random action
     obs, reward, terminated, truncated, info = env.step(action)
+    time.sleep(1.0 / 60.0)  # Slow down simulation for visualization
     if terminated or truncated:
         obs, _ = env.reset()
-    time.sleep(1.0 / 60.0)  # Slow down simulation for visualization

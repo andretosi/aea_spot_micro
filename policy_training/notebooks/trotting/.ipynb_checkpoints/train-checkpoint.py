@@ -22,8 +22,8 @@ from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.logger import configure
 
 # ========= CONFIG ==========
-TOTAL_STEPS = 9_000_000
-run = "shuffle"
+TOTAL_STEPS = 15_000_000
+run = "trot3"
 base="stand"
 
 log_dir = f"./logs/{run}"
@@ -34,7 +34,7 @@ def clipped_linear_schedule(initial_value, min_value=1e-5):
     return schedule
 
 checkpoint_callback = CheckpointCallback(
-    save_freq=TOTAL_STEPS // 10,
+    save_freq=TOTAL_STEPS // 15,
     save_path=f"{run}_checkpoints",
     name_prefix=f"ppo_{run}"
 )
@@ -43,7 +43,7 @@ checkpoint_callback = CheckpointCallback(
 env = SpotmicroEnv(
     use_gui=False,
     reward_fn=reward_function, 
-    reward_state=RewardState(),
+    reward_state=RewardState(total_training_steps=TOTAL_STEPS),
     src_save_file=f"{base}.pkl",
     dest_save_file=f"{run}.pkl"
 )

@@ -7,11 +7,9 @@ import inspect, os, pickle, warnings
 from Config import Config
 from Agent import Agent
 from Terrain import Terrain
-"""
-DOMANDE
-1) perché ConfigEnv e Config class sono separate nel codice?
+import time
 
-"""
+
 """
 This class inherits the Config class.
 First it creates and inizializes the attributes that show up in the .yaml
@@ -171,6 +169,9 @@ r
         self._CONTROL_FREQUENCY = 60
         self._JOINT_HISTORY_MAX_LEN = 5
 
+        # TODO @andretosi fare un sistema che le cambia dinamicamente,
+        # in modo che in futuro possano essere inserite tramite joistick
+        
         self._TARGET_LINEAR_VELOCITY = np.array([0.3, 0.0, 0.0])
         self._TARGET_ANGULAR_VELOCITY = np.array([0.0, 0.0, 0.0])
 
@@ -346,6 +347,7 @@ r
         self.np_random, seed = gym.utils.seeding.np_random(seed)
         return [seed]
 
+    # TODO: BUG fix here. Decouple logic steps from phisical sim steps. WOuld this loop work in a real setting? no, because what reward would you give in between the control steps? it is not feasible to calculate reward at 240Hz. So, step once giving an action and calculating the reward (on which action of the batch?), then step x steps in the sim all for one spotenv.step() call
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
         """
         Method exposed and used bby SB3 to execute one time step within the environment.
@@ -362,16 +364,12 @@ r
                 - info (dict): Contains auxiliary diagnostic information.
         """
 
-        #Slow down the control loop
-        if (self._episode_step_counter % int(self._SIM_FREQUENCY / self._CONTROL_FREQUENCY)) == 0: # apply new action
-            observation = self._step_simulation(action)
-            reward, reward_info = self._calculate_reward(action)
-        else:                                                                         # reuse last action
-            observation = self._step_simulation(self._agent.previous_action)
-            reward, reward_info = self._calculate_reward(self._agent.previous_action)
+        observation = self._step_simulation(action)
+        self._episode_step_counter += 1 #updates the step counter (used to check against timeouts)
+        reward, reward_info = self._calculate_reward(action)
 
         terminated, term_penalty = self._is_target_state() # checks wether the agent has fallen or not
-        truncated = self._is_terminated()
+        truncated = self._is_truncated()
         info = self._get_info()
 
         #actions that are reused in the control loop still receive a reward and are appended to the episode_reward_info ????
@@ -419,17 +417,20 @@ r
         """
         Private method that calls the API to execute the given action in PyBullet.
         It should sinchronize the state of the agent in the simulation with the state recorded here!
-        Accepts an action and returns an observation
+        Accepts an action and returns an observation.
+        The simulation is stepped multiple times to slow down the control loop
         """
         # Execute the action in pybullet
         self._agent.apply_action(action)
-        
-        self._episode_step_counter += 1 #updates the step counter (used to check against timeouts)
-        
+                
         if self._terrain.config.mode == "tilting":
             self._terrain.tilt_plane()
         
-        pybullet.stepSimulation()
+        for _ in range(self._SIM_FREQUENCY // self._CONTROL_FREQUENCY):
+            pybullet.stepSimulation()
+            if self.use_gui:
+                time.sleep(1/70.) # MAGIC NUMBER, MAKES THE SIMULATION LOOK REAL-TIME (not slow, not too fast)
+
         self._agent.sync_state()
 
         return self._get_observation()
@@ -470,7 +471,7 @@ r
         - 3: height of the robot
         - 4-6: linear velocity of the base
         - 7-9: angular velocity of the base
-        - 10-21: positions of the joints
+        - 10-21: positions of the joints, ADD NOISE?
         - 22-33: velocities of the joints
         - 34-81: history
         - 82-93: previous action
@@ -479,7 +480,7 @@ r
         #NORMALIZATION PARAMETERS
         obs = []
         obs.extend(self._get_gravity_vector())
-        obs.append((self._agent.state.base_position[2] - self.config.target_height) / self.config.max_norm_height) # Normalized w respect a hypotetical max height
+        obs.append((self._agent.state.base_position[2] - self.config.target_body_to_feet_height) / self.config.max_norm_height) # Normalized w respect a hypotetical max height
         obs.extend(self._agent.state.linear_velocity / self.config.max_linear_velocity) # Normalized w respect to a hypotetical max velocity
         obs.extend(self._agent.state.angular_velocity / self.config.max_angular_velocity) # Normalized w respect to a hypotetical max ang velocity
         obs.extend(self._joint_positions_norm(self._agent.state.joint_positions)) 
@@ -510,7 +511,7 @@ r
         else:
             return (False, 0)
     
-    def _is_terminated(self) -> bool:
+    def _is_truncated(self) -> bool:
         """
         Function that returns wether an episode was terminated artificially or timed out
         """
@@ -595,3 +596,7 @@ r
     @property
     def sim_frequency(self) -> int:
         return self._SIM_FREQUENCY
+    
+    @property
+    def max_episode_len(self) ->int:
+        return self._MAX_EPISODE_LEN

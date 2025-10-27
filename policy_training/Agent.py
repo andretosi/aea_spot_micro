@@ -380,3 +380,66 @@ class Agent:
     @property
     def motor_joints(self) -> tuple:
         return self._motor_joints
+    
+    def get_feet_positions(self) -> np.ndarray:
+        """ Returns the positions of the feet with respect to the Golbal Frame
+
+        Returns:
+            np.ndarray: Matrix [4, 3] with the 4 position vectors of the feet
+        """
+        feet_positions = []
+        for joint in self._motor_joints:
+            if joint.type == "foot":
+                link_state = pybullet.getLinkState(
+                    self._robot_id,
+                    joint.link_id,
+                    physicsClientId=self.physics_client
+                )
+                # link_state[0] è la worldLinkFramePosition
+                feet_positions.append(link_state[0])
+        
+        return np.array(feet_positions)
+
+    def get_body_to_feet_height_projected(self) -> float:
+        """Calculates the projected height of the body over the feet centroid.
+
+        This method determines the body's height relative to the average position
+        (centroid) of the feet. The calculation is performed by projecting the
+        vector from the feet centroid to the body's center of mass onto the
+        robot's own vertical axis ($z_b$). This makes the measurement
+        independent of the robot's overall tilt.
+
+        The height is computed using the dot product:
+
+        $$
+        H = (\\mathbf{p}_\\text{body} - \\mathbf{p}_\\text{feet\\_avg}) \\cdot \\mathbf{u}_\\text{body}
+        $$
+
+        Where:
+            - $\\mathbf{p}_\\text{body}$: Position of the body's center of mass.
+            - $\\mathbf{p}_\\text{feet\\_avg}$: Centroid of the feet positions.
+            - $\\mathbf{u}_\\text{body}$: Unit vector of the body's vertical axis.
+
+        Returns:
+            float: The projected scalar height of the body from the feet centroid.
+        """
+        # 1. Calcolo del centroide dei piedi, p_feet_avg
+        feet_positions = self.get_feet_positions()
+        p_feet_avg = np.mean(feet_positions, axis=0)
+
+        # 2. Calcolo del vettore che collega centroide e corpo, v_feet->body
+        p_body = self._state.base_position
+        v_feet_to_body = p_body - p_feet_avg
+
+        # 3. Trovare la direzione "su" del robot, u_body
+        _, orientation_quat = pybullet.getBasePositionAndOrientation(
+            self._robot_id, 
+            physicsClientId=self.physics_client
+        )
+        rot_matrix = np.array(pybullet.getMatrixFromQuaternion(orientation_quat)).reshape(3, 3)
+        u_body = rot_matrix[:, 2]  # Versore z locale espresso rispetto alle coordinate globali
+
+        # 4. Proiezione scalare (prodotto scalare)
+        height = np.dot(v_feet_to_body, u_body)
+
+        return height
