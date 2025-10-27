@@ -26,106 +26,81 @@ class ConfigEnv(Config):
                 setattr(self, attr, 0.0)
         
 
-"""
-the SpotMicroEnv class inherits the gym.Env class and overrides his methods in order
-to create an interface between Stable Baselines3 and pybullet:
 
-SB3 <-> Env <-> Pybullet
-
-1) ATTRIBUTES
-These two attributes come from the gym.Env class
-- observation_space: the Space object corresponding to valid observations
-- action_space: The Space object corresponding to valid actions
-
-These are the most important attributes that describe the SpotMicroEnv class:
-_OBS_SPACE_SIZE: size of the space vector
-_ACT_SPACE_SIZE: size of the action vector, returned by the neuralnet
-_target_state: dictionary that defines the ranges of height and pitch/roll in whitch the robot has to stay to
-               not terminate the episode. The values are taken from the envConfig.yaml file, "Target Values" section
-_reward_fn:
-
-physics_client: This object comes from the PyBullet class, and is the one who is given as input to
-                most of the pyBullet methods. 
-
-_terrain: This object belongs to the Terrain class, defined in the Terrain.py file. It contains all the info about 
-          the terrain of the simulation. It takes the physics_client as input to update the ground of the simulation,
-          other parameters are defined in the terrainConfig.yaml file.
-_agent: 
-
-2) METHODS
-Here is a list of the methods of the gym.Env class that are overriden:
-- step: Method exposed and used by SB3 to execute one time step within the environment.
-    
-    input:
-        action (gym.spaces.Box): The action to take in the environment.
-
-    output:
-        tuple containing
-            - observation (np.ndarray): Agent's observation of the environment.
-            - reward (float): Amount of reward returned after previous action.
-            - terminated (bool): Whether the episode naturally ended.
-            - truncated (bool): Whether the episode was artificially terminated.
-            - info (dict): Contains auxiliary diagnostic information. See _get_info()
-
-    The action is taken using _step_simulation(action) method. The control loop is slowed down
-    manually. 
-
-
-
-- reset: resets the environment to an inital state, and returns the firts observation value.
-    More specifically:
-    Resets Agent and Terrain classes using their reset() methods; steps the pybullet
-    simulation a few times until the bot is stable in the initial state. 
-    Returns the initial observation and info dict, see _get_info()
-
-- close: Closes the pybullet simulation, saves the state if a destination path is provided.
-
-- render (ignored)
-
-These are public methods 
-- save_state: saves a dictionary containing useful data about the current state:
-              (total steps counter, previous action, joint state history)
-              The file is stored in _dest_save_file, parameter of the constructor method: src_save_file
-- load_state: loads the dictionary saved by save_state(). The path of the file is a 
-              parameter of the constructor method: dest_save_file
-
-Private methods
-- _step_simulation: accepts an action and returns an observation. This is done by the Agent class:
-                    apply_action(action) -> pybullet.stepSimulation -> sync_state()
-                    Eventually tilts the plane if a variable is set.
-                    Returns the observation using _get_observation().
-
-These methods are used to compute the values that are returned by step() (and other relevant methods):
-- _get_observation (np.ndarray): Agent's observation of the environment.
-        - 0-2: gravity vector
-        - 3: height of the robot
-        - 4-6: linear velocity of the base
-        - 7-9: angular velocity of the base
-        - 10-21: positions of the joints
-        - 22-33: velocities of the joints
-        - 34-81: history
-        - 82-93: previous action
-
-- _calculate_reward (float): Placeholder method that calls the reward function provided as an input.
-
-- _is_target_state (bool): Private method that returns wether the state of the agent is a target state 
-    (one in which to end the simulation) or not. It also returns a penalty to 
-    apply when the specific target condition is met.
-
-- _is_terminated (bool): Function that returns wether an episode was terminated artificially or timed out
-
-- _get_info (dict): Function that returns a dict containing the following fields:
-        - height (of the body)
-        - pitch: (of the base)
-        - episode_step
-"""
 class SpotmicroEnv(gym.Env):
+    """
+    the SpotMicroEnv class inherits the gym.Env class and overrides his methods in order
+    to create an interface between Stable Baselines3 and pybullet:
+
+    SB3 <-> Env <-> Pybullet
+
+    Attributes
+    -----------------
+    These two attributes come from the gym.Env class
+    - observation_space: the Space object corresponding to valid observations
+    - action_space: The Space object corresponding to valid actions
+
+    These are the most important attributes that describe the SpotMicroEnv class:
+    - _OBS_SPACE_SIZE: size of the space vector
+    - _ACT_SPACE_SIZE: size of the action vector, returned by the neuralnet
+    - _target_state: dictionary that defines the ranges of height and pitch/roll in whitch the robot has to stay to 
+                not terminate the episode. The values are taken from the envConfig.yaml file, "Target Values" section
+    - _reward_fn: reward function provided as input to the constructor
+
+    - physics_client: This object comes from the PyBullet class, and is the one who is given as input to
+                    most of the pyBullet methods. 
+
+    - _terrain: This object belongs to the Terrain class, defined in the Terrain.py file. It contains all the info about 
+            the terrain of the simulation. It takes the physics_client as input to update the ground of the simulation,
+            other parameters are defined in the terrainConfig.yaml file.
+    - _agent: Agent object, defined in the Agent.py file
+
+    Methods
+    --------------------------
+    Here is a list of the **methods of the gym.Env class that are overriden:**
+    - step: Method exposed and used by SB3 to execute one time step within the environment.
+
+    - reset: resets the environment to an inital state, and returns the firts observation value.
+
+    - close: Closes the pybullet simulation, saves the state if a destination path is provided.
+
+    - render (ignored)
+
+    **Public methods:** 
+    - save_state: saves a dictionary containing useful data about the current state:
+                (total steps counter, previous action, joint state history)
+                The file is stored in _dest_save_file, parameter of the constructor method: src_save_file
+    - load_state: loads the dictionary saved by save_state(). The path of the file is a 
+                parameter of the constructor method: dest_save_file
+
+    **Private methods**
+    - _step_simulation: accepts an action and returns an observation. This is done by the Agent class:
+                        apply_action(action) -> pybullet.stepSimulation -> sync_state()
+                        Eventually tilts the plane if a variable is set.
+                        Returns the observation using _get_observation().
+
+    These methods are used to compute the values that are returned by step() (and other relevant methods):
+    - _get_observation (np.ndarray): Agent's observation of the environment.
+            
+    - _calculate_reward (float): Placeholder method that calls the reward function provided as an input.
+
+    - _is_target_state (bool): Private method that returns wether the state of the agent is a target state 
+        (one in which to end the simulation) or not. It also returns a penalty to 
+        apply when the specific target condition is met.
+
+    - _is_terminated (bool): Function that returns wether an episode was terminated artificially or timed out
+
+    - _get_info (dict): Function that returns a dict containing the following fields:
+            - height (of the body)
+            - pitch: (of the base)
+            - episode_step
+"""
     def __init__(self, envConfig="envConfig.yaml", agentConfig="agentConfig.yaml", terrainConfig="terrainConfig.yaml", use_gui=False, reward_fn=None, reward_state=None, dest_save_file=None, src_save_file=None, writer=None):
         """
         Parameters
         ------------
         - envConfig : str
-r
+
         - agentConfig : str
 
         - terrainConfig : str
@@ -262,6 +237,11 @@ r
         
     # useful data saved when close() is called      
     def save_state(self):
+        """
+        saves a dictionary containing useful data about the current state:\n
+        (total steps counter, previous action, joint state history)\n
+        The file is stored in _dest_save_file, parameter of the constructor method: src_save_file
+        """
         state = {
             "total_steps_counter": self._total_steps_counter,
             "previous_action": self._agent.previous_action,
@@ -275,6 +255,10 @@ r
 
     # loads the data saved by save_state() 
     def load_state(self):
+        """
+        loads the dictionary saved by save_state(). \n 
+        The path of the file is a parameter of the constructor method: dest_save_file
+        """
         with open(self._src_file, 'rb') as f:
             state = pickle.load(f)
         
@@ -299,7 +283,12 @@ r
     def reset(self, seed: int | None = None, options: dict | None = None) -> tuple[np.ndarray, dict]:
         """
         Gymnasium reset: start a new episode, set counters, reset agent and terrain,
-        and return the initial observation and info dict.
+        and return the initial observation and info dict.\n
+        **More specifically**: \n
+        - Resets Agent and Terrain classes using their reset() methods
+        - steps the pybullet
+        simulation a few times until the bot is stable in the initial state
+        - Returns the initial observation and info dict, see _get_info()
         """
         super().reset(seed=seed)
 
@@ -418,7 +407,13 @@ r
         Private method that calls the API to execute the given action in PyBullet.
         It should sinchronize the state of the agent in the simulation with the state recorded here!
         Accepts an action and returns an observation.
-        The simulation is stepped multiple times to slow down the control loop
+        The simulation is stepped multiple times to slow down the control loop.
+        \n**More precisely**\n
+        accepts an action and returns an observation. This is done by the Agent class:\n
+        apply_action(action) -> pybullet.stepSimulation -> sync_state()\n
+        Eventually tilts the plane if a variable is set.
+        Returns the observation using _get_observation().\n
+
         """
         # Execute the action in pybullet
         self._agent.apply_action(action)
