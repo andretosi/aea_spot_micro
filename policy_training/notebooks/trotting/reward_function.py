@@ -26,7 +26,7 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     lin_vel_error = np.linalg.norm(env.target_lin_velocity - env.agent.state.linear_velocity) ** 2
     ang_vel_error = np.linalg.norm((env.target_ang_velocity - env.agent.state.angular_velocity) / env.config.max_angular_velocity)** 2
     deviation_penalty = np.linalg.norm(env.agent.state.joint_positions - env.agent.homing_positions) ** 2
-    height_penalty = (env.agent.state.base_position[2] - env.config.target_height) ** 2
+    height_penalty = (env.agent.state.base_position[2] - env.config.target_body_to_feet_height) ** 2
     stabilization_penalty = roll ** 2 + pitch ** 2
     perp_velocity = env.agent.state.linear_velocity - ((np.dot(env.agent.state.linear_velocity, env.target_lin_velocity) / (np.linalg.norm(env.target_lin_velocity) ** 2)) * env.target_lin_velocity)
     action_rate = np.mean(action - env.agent.previous_action) ** 2
