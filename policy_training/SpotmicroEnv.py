@@ -136,19 +136,13 @@ class SpotmicroEnv(gym.Env):
 
         #these two constants will be assigned to the obs_space and action_space attributes
         #of the gym.Env class
-        self._OBS_SPACE_SIZE = 94
+        self._OBS_SPACE_SIZE = 100
         self._ACT_SPACE_SIZE = 12
         
         self._MAX_EPISODE_LEN = 3000
         self._SIM_FREQUENCY = 240
         self._CONTROL_FREQUENCY = 60
         self._JOINT_HISTORY_MAX_LEN = 5
-
-        # TODO @andretosi fare un sistema che le cambia dinamicamente,
-        # in modo che in futuro possano essere inserite tramite joistick
-        
-        self._TARGET_LINEAR_VELOCITY = np.array([0.3, 0.0, 0.0])
-        self._TARGET_ANGULAR_VELOCITY = np.array([0.0, 0.0, 0.0])
 
         self._episode_step_counter = 0
         self._total_steps_counter = 0
@@ -246,8 +240,8 @@ class SpotmicroEnv(gym.Env):
             "total_steps_counter": self._total_steps_counter,
             "previous_action": self._agent.previous_action,
             "joint_history": list(self._agent.joint_history),
-            "target_linear_velocity": self._TARGET_LINEAR_VELOCITY,
-            "target_angular_velocity": self._TARGET_ANGULAR_VELOCITY
+            "target_linear_velocity": self._agent.controller.linear_velocity_ref,
+            "target_angular_velocity": self._agent.controller.angular_velocity_ref
         }
 
         with open(self._dest_save, "wb") as f:
@@ -460,6 +454,10 @@ class SpotmicroEnv(gym.Env):
         return vel_norm
 
     
+    #Where to insert the controller? Options are:
+    # - Env has a reference of the controller. But what if multiple entities are controlled?
+    # - Controller lives outside the env -> breaks the interface
+    # - Each controllable  entity has its controller -> Agent owns its controller
     def _get_observation(self) -> np.ndarray:
         """
         - 0-2: gravity vector
@@ -470,6 +468,8 @@ class SpotmicroEnv(gym.Env):
         - 22-33: velocities of the joints
         - 34-81: history
         - 82-93: previous action
+        - 94-96: linear velocity reference. The target value of linear velocity given by the controller -> SHOULD BE GIVEN ALREADY NORMALIZED
+        - 97-99: angular velocity reference -> SHOULD BE GIVEN ALREADY NORMALIZED
         """
 
         #NORMALIZATION PARAMETERS
@@ -485,6 +485,8 @@ class SpotmicroEnv(gym.Env):
         obs.extend(self._joint_positions_norm(self._agent.joint_history[4][0]))
         obs.extend(self._joint_velocities_norm(self._agent.joint_history[4][1]))
         obs.extend(self._agent.previous_action)
+        obs.extend(self._agent.controller.linear_velocity_ref)
+        obs.extend(self._agent.controller.angular_velocity_ref)
 
         assert len(obs) == self._OBS_SPACE_SIZE, f"Expected 94 elements, got {len(obs)}"
 
@@ -547,39 +549,6 @@ class SpotmicroEnv(gym.Env):
     def terrain(self):
         return self._terrain
     
-    @property
-    def target_lin_velocity(self) -> np.ndarray:
-        """
-        Get the current target direction for locomotion (unit vector).
-        """
-        return self._TARGET_LINEAR_VELOCITY
-    
-    @target_lin_velocity.setter
-    def target_linear_velocity(self, lin_velocity: tuple[float, float, float]) -> None:
-        """
-        Set a new target direction for locomotion. Should be a normalized 3D vector
-        """
-        norm = np.linalg.norm(lin_velocity)
-        if norm == 0:
-            raise ValueError("Target direction cannot be a zero vector")
-        self._TARGET_LINEAR_VELOCITY = np.array(np.array(lin_velocity) / norm)
-    
-    @property
-    def target_ang_velocity(self) -> np.ndarray:
-        """
-        Get the current target direction for locomotion (unit vector).
-        """
-        return self._TARGET_ANGULAR_VELOCITY
-    
-    @target_ang_velocity.setter
-    def target_angular_velocity(self, ang_velocity: tuple[float, float, float]) -> None:
-        """
-        Set a new target direction for locomotion. Should be a normalized 3D vector
-        """
-        norm = np.linalg.norm(ang_velocity)
-        if norm == 0:
-            raise ValueError("Target direction cannot be a zero vector")
-        self._TARGET_LINEAR_VELOCITY = np.array(np.array(ang_velocity) / norm)
     
     @property
     def num_steps(self) -> int:
