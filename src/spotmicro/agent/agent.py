@@ -5,6 +5,7 @@ from collections import deque
 from importlib.resources import files
 
 from spotmicro.agent.config import Config
+from spotmicro.agent.controller import Controller
 
 #questa classe contiene soltanto dei dati
 #nello specifico contiene tutte informazioni relative allo stato corrente 
@@ -160,6 +161,7 @@ class Agent:
         self._config = config
         self.physics_client = physics_client
         self._action_space_size = action_space_size
+        self._controller = Controller(config.max_forward_linear_velocity, config.max_lateral_linear_velocity, config.max_angular_velocity)
 
         # --- State ---
         self._state = AgentState(
@@ -383,6 +385,10 @@ class Agent:
     @property
     def motor_joints(self) -> tuple:
         return self._motor_joints
+
+    @property
+    def controller(self) -> Controller:
+        return self._controller
     
     def get_feet_positions(self) -> np.ndarray:
         """ Returns the positions of the feet with respect to the Golbal Frame

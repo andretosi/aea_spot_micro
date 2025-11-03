@@ -9,7 +9,3 @@ class Command:
     x: float
     y: float
     theta: float
-
-    @property
-    def as_array(self):
-        return np.array([self.x, self.y, self.theta])
