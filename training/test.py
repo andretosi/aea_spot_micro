@@ -3,11 +3,12 @@ This script only serves the purpose of showing what a robot does when acting ran
 It's actually quite useful to compare agains results obtained with a trained policy
 """
 
-from src.spotmicro.env import spotmicro_env
 import time
-from walking_reward_function import reward_function, RewardState
 
-env = spotmicro_env(use_gui=True, reward_fn=reward_function, reward_state=RewardState())
+from spotmicro.env.spotmicro_env import SpotmicroEnv
+from reward_functions.walking_reward_function import reward_function, RewardState
+
+env = SpotmicroEnv(use_gui=True, reward_fn=reward_function, reward_state=RewardState())
 obs, _ = env.reset()
 print("RESET")
 time.sleep(2)
