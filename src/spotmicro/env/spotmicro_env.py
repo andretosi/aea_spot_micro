@@ -451,7 +451,7 @@ class SpotmicroEnv(gym.Env):
         return pos_norm
     
     def _joint_velocities_norm(self, vels): #PARAMETER (normalization)
-        vel_norm = [np.tanh(vel / self.config.max_joint_velocity) for vel in vels] # Normalize velocity with resect to a hypotetical max velocity (10 rad/s)
+        vel_norm = [np.tanh(vel / self._agent.config.max_joint_velocity) for vel in vels] # Normalize velocity with resect to a hypotetical max velocity (10 rad/s)
         return vel_norm
 
     
@@ -476,9 +476,9 @@ class SpotmicroEnv(gym.Env):
         #NORMALIZATION PARAMETERS
         obs = []
         obs.extend(self._get_gravity_vector())
-        obs.append((self._agent.state.base_position[2] - self.config.target_body_to_feet_height) / self.config.max_norm_height) # Normalized w respect a hypotetical max height
-        obs.extend(self._agent.state.linear_velocity / self.config.max_linear_velocity) # Normalized w respect to a hypotetical max velocity
-        obs.extend(self._agent.state.angular_velocity / self.config.max_angular_velocity) # Normalized w respect to a hypotetical max ang velocity
+        obs.append((self._agent.state.base_position[2] - self.config.target_body_to_feet_height) / self._agent.config.max_norm_height) # Normalized w respect a hypotetical max height
+        obs.extend(self._agent.state.linear_velocity / self._agent.config.max_linear_velocity) # Normalized w respect to a hypotetical max velocity
+        obs.extend(self._agent.state.angular_velocity / self._agent.config.max_angular_velocity) # Normalized w respect to a hypotetical max ang velocity
         obs.extend(self._joint_positions_norm(self._agent.state.joint_positions)) 
         obs.extend(self._joint_velocities_norm(self._agent.state.joint_velocities))
         obs.extend(self._joint_positions_norm(self._agent.joint_history[1][0]))
@@ -486,8 +486,8 @@ class SpotmicroEnv(gym.Env):
         obs.extend(self._joint_positions_norm(self._agent.joint_history[4][0]))
         obs.extend(self._joint_velocities_norm(self._agent.joint_history[4][1]))
         obs.extend(self._agent.previous_action)
-        obs.extend(self._agent.controller.linear_velocity_ref)
-        obs.extend(self._agent.controller.angular_velocity_ref)
+        obs.extend(self._agent.controller.target_linear_velocity)
+        obs.extend(self._agent.controller.target_angular_velocity)
 
         assert len(obs) == self._OBS_SPACE_SIZE, f"Expected 94 elements, got {len(obs)}"
 
