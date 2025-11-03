@@ -13,16 +13,22 @@ homing_pitch: -0.065 #Tilt body slightly forward for stability
 
 #Mobility parameters: gains, deadzones, power
 shoulder_gain: 0.9
-shoulder_deadzone: 0.07
+shoulder_deadzone: 0.05
 shoulder_power: 2
 
 leg_gain: 0.8
-leg_deadzone: 0.075
+leg_deadzone: 0.05
 leg_power: 2.2
 
 foot_gain: 0.65
-foot_deadzone: 0.075
+foot_deadzone: 0.05
 foot_power: 2.3
+
+max_joint_velocity: 10 #Rad/s
+max_norm_height: 0.235
+max_linear_velocity: 2.0
+max_angular_velocity: 10
 
 # <--  OTHER STUFF -->
 joint_history_maxlen: 5
+controller_type: "random"

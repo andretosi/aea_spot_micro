@@ -1,6 +1,6 @@
 import pybullet
 import numpy as np
-from SpotmicroEnv import SpotmicroEnv
+from spotmicro.env.spotmicro_env import SpotmicroEnv
 
 class RewardState:
     def __init__(self):

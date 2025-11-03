@@ -1,8 +1,9 @@
 import time
 import numpy as np
 from stable_baselines3 import PPO
-from SpotmicroEnv import SpotmicroEnv
-from walking_reward_function import reward_function, RewardState
+
+from spotmicro.env.spotmicro_env import SpotmicroEnv
+from reward_functions.walking_reward_function import reward_function, RewardState
 
 run = "stand"
 

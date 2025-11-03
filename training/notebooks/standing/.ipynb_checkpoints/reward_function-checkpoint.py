@@ -1,50 +1,45 @@
 import pybullet
 import numpy as np
-from SpotmicroEnv import SpotmicroEnv
+from spotmicro.env.spotmicro_env import SpotmicroEnv
 
 class RewardState:
     def __init__(self):
         self.prev_contacts = set()
+        self.a = -5.0   # controls steepness of parabola
+
+        # will hold homing positions in raw joint space
+        self.homing_positions = None
     
     def populate(self, env: SpotmicroEnv):
+        # Store raw homing positions for each motor joint
+        self.homing_positions = np.array([
+            float(j.homing_position) for j in env.agent.motor_joints
+        ])
         return
-
-def fade_in(current_step, start=300_000, scale=2.0):
-    if current_step < start:
-        return 0.0
-    return 1.0 - np.exp(-scale * (current_step - start) / 1_000_000)
 
 def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]:
 
-    roll, pitch, _ = env.agent.state.roll_pitch_yaw
-    base_height = env.agent.state.base_orientation[2]
-    positions = env.agent.state.joint_positions
-    homing_positions = env.agent.homing_positions
 
-    # === Uprightness Reward ===
-    max_angle = np.radians(45)  # anything over this is considered tipping
-    uprightness = 1.0 - (abs(roll) + abs(pitch-env.agent.config.homing_pitch)) / max_angle
-    uprightness = np.clip(uprightness, 0.0, 1.0)
+    # Parabola centered at homing position
+    diffs = env.agent.state.joint_positions - env.reward_state.homing_positions
+    rewards = env.reward_state.a * np.square(diffs) + 1.0
 
-    # === Height Reward ===
-    height_error = abs(base_height - env.config.target_height)
-    height_reward = np.exp(-5 * height_error)  # 1 if perfect, drops off quickly
+    # Clip to desired range
+    rewards = np.clip(rewards, -0.5, 1.0)
 
-    # === Joint Deviation Penalty ===
-    joint_deviation = float(np.mean(np.abs(positions - homing_positions)))
+    pos_reward = np.mean(rewards)
 
-    # === Action Sparsity ===
-    action_penalty = 1.0 - float(np.mean(np.abs(env.agent.action)))
+    # === NEW: Torque penalty ===
+    efforts = np.array([j.effort for j in env.agent.motor_joints])
+    max_torque = np.array([j.max_torque for j in env.agent.motor_joints])
+    normalized_effort = np.mean((efforts / max_torque) ** 2)  # normalized quadratic cost
 
-
-    # === Final Reward ===
+    # === Final reward ===
     reward_dict = {
-        #"uprightness": 2 * uprightness,
-        #"height": 3 * height_reward,
-        "action_penalty": 2 * action_penalty,
-        #"joint_deviation_penalty": -2 * joint_deviation,
-        #"survival_bonus": 0.5
+        "action_reward": 2.0 * pos_reward,
+        "effort_penalty": -1 * normalized_effort,
     }
+
     total_reward = sum(reward_dict.values())
 
     env.log_rewards(reward_dict)

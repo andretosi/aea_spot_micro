@@ -8,7 +8,7 @@ from reward_functions.walking_reward_function import reward_function, RewardStat
 
 TOTAL_STEPS = 3_000_000
 run = "stand"
-DATA_DIR = Path("..") / "data" / f"{run}_results"
+DATA_DIR =  Path("data") / f"{run}_results"
 DATA_DIR.mkdir(parents=True, exist_ok=True)  # ensure directory exists
 
 def clipped_linear_schedule(initial_value, min_value=1e-5):
