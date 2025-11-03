@@ -137,7 +137,7 @@ class SpotmicroEnv(gym.Env):
 
         #these two constants will be assigned to the obs_space and action_space attributes
         #of the gym.Env class
-        self._OBS_SPACE_SIZE = 100
+        self._OBS_SPACE_SIZE = 97
         self._ACT_SPACE_SIZE = 12
         
         self._MAX_EPISODE_LEN = 3000
@@ -208,7 +208,7 @@ class SpotmicroEnv(gym.Env):
         )
 
         #Initialize the agent object
-        self._agent = Agent(self.physics_client, Config(agentConfig), self._ACT_SPACE_SIZE, self.config.spawn_height)
+        self._agent = Agent(self, Config(agentConfig), self._ACT_SPACE_SIZE)
 
         self._dest_save = dest_save_file
         if self._dest_save is not None:
@@ -241,8 +241,8 @@ class SpotmicroEnv(gym.Env):
             "total_steps_counter": self._total_steps_counter,
             "previous_action": self._agent.previous_action,
             "joint_history": list(self._agent.joint_history),
-            "target_linear_velocity": self._agent.controller.linear_velocity_ref,
-            "target_angular_velocity": self._agent.controller.angular_velocity_ref
+            "target_linear_velocity": self._agent.controller.target_linear_velocity,
+            "target_angular_velocity": self._agent.controller.target_angular_velocity
         }
 
         with open(self._dest_save, "wb") as f:
@@ -331,7 +331,6 @@ class SpotmicroEnv(gym.Env):
         self.np_random, seed = gym.utils.seeding.np_random(seed)
         return [seed]
 
-    # TODO: BUG fix here. Decouple logic steps from phisical sim steps. WOuld this loop work in a real setting? no, because what reward would you give in between the control steps? it is not feasible to calculate reward at 240Hz. So, step once giving an action and calculating the reward (on which action of the batch?), then step x steps in the sim all for one spotenv.step() call
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
         """
         Method exposed and used bby SB3 to execute one time step within the environment.
@@ -348,6 +347,7 @@ class SpotmicroEnv(gym.Env):
                 - info (dict): Contains auxiliary diagnostic information.
         """
 
+        self._agent.controller.update_reference()
         observation = self._step_simulation(action)
         self._episode_step_counter += 1 #updates the step counter (used to check against timeouts)
         reward, reward_info = self._calculate_reward(action)
@@ -469,8 +469,8 @@ class SpotmicroEnv(gym.Env):
         - 22-33: velocities of the joints
         - 34-81: history
         - 82-93: previous action
-        - 94-96: linear velocity reference. The target value of linear velocity given by the controller -> SHOULD BE GIVEN ALREADY NORMALIZED
-        - 97-99: angular velocity reference -> SHOULD BE GIVEN ALREADY NORMALIZED
+        - 94-95: linear velocity reference in robot frame. The target value of linear velocity given by the controller -> SHOULD BE GIVEN ALREADY NORMALIZED
+        - 96: angular velocity reference in robot frame -> SHOULD BE GIVEN ALREADY NORMALIZED
         """
 
         #NORMALIZATION PARAMETERS
@@ -549,7 +549,6 @@ class SpotmicroEnv(gym.Env):
     @property
     def terrain(self):
         return self._terrain
-    
     
     @property
     def num_steps(self) -> int:

@@ -5,7 +5,8 @@ from collections import deque
 from importlib.resources import files
 
 from spotmicro.agent.config import Config
-from spotmicro.agent.controller import Controller
+from spotmicro.agent.controller import controllerFactory, Controller
+
 
 #questa classe contiene soltanto dei dati
 #nello specifico contiene tutte informazioni relative allo stato corrente 
@@ -17,7 +18,7 @@ from spotmicro.agent.controller import Controller
 @dataclass
 class AgentState:
     """
-    this dataclass contains all the useful data about the current state of the agent
+    this dataclass contains all the useful data about the current state of the agent, with the velocities being stored in its own space coordinates
     """
     base_position: np.ndarray = field(default_factory=lambda: np.zeros(3))
     base_orientation: np.ndarray = field(default_factory=lambda: np.array([0, 0, 0, 1]))
@@ -157,15 +158,15 @@ class Agent:
 
 
     """
-    def __init__(self, physics_client, config: Config, action_space_size: int, spawn_height: float):
+    def __init__(self, env, config: Config, action_space_size: int):
         self._config = config
-        self.physics_client = physics_client
         self._action_space_size = action_space_size
-        self._controller = Controller(config.max_forward_linear_velocity, config.max_lateral_linear_velocity, config.max_angular_velocity)
+        self._controller = controllerFactory.createController(self._config.controller_type)
+        self._env = env
 
         # --- State ---
         self._state = AgentState(
-            base_position=np.array([0.0, 0.0, spawn_height]),
+            base_position=np.array([0.0, 0.0, self._env.config.spawn_height]),
             base_orientation=pybullet.getQuaternionFromEuler([0, self._config.homing_pitch, np.pi]),
         )
         self._action = np.zeros(self._action_space_size, dtype=np.float32)
@@ -178,7 +179,7 @@ class Agent:
             urdf_path,
             basePosition=self._state.base_position,
             baseOrientation=self._state.base_orientation,
-            physicsClientId=self.physics_client,
+            physicsClientId=self._env.physics_client,
         )
 
         # --- Joints ---
@@ -235,14 +236,14 @@ class Agent:
             self._robot_id,
             self._state.base_position,
             self._state.base_orientation,
-            physicsClientId=self.physics_client,
+            physicsClientId=self._env.physics_client,
         )
 
         pybullet.resetBaseVelocity(
             self._robot_id,
             linearVelocity=[0,0,0],
             angularVelocity=[0,0,0],
-            physicsClientId=self.physics_client,
+            physicsClientId=self._env.physics_client,
         )
 
         # Reset all motor joints to homing
@@ -252,7 +253,7 @@ class Agent:
                 joint.id,
                 targetValue=self.homing_positions[i],
                 targetVelocity=0.0,
-                physicsClientId=self.physics_client,
+                physicsClientId=self._env.physics_client,
             )
 
         # Reset actions to "homing" which is 0
@@ -298,8 +299,8 @@ class Agent:
         """
         contact_points = pybullet.getContactPoints(
             bodyA=self._robot_id,
-            bodyB=self._plane_id,
-            physicsClientId=self.physics_client
+            bodyB=self._env.terrain._terrain_id,
+            physicsClientId=self._env.physics_client
         )
 
         feet_in_contact = set()
@@ -313,13 +314,23 @@ class Agent:
         return feet_in_contact
 
     def _update_state(self):
-        """Query pybullet and update AgentState."""
+        """Query pybullet and update AgentState with velocities in robot-space coodinates"""
 
-        #gets from pybullet data about position, orientation, velocity
+        # Get base position, orientation (world frame)
         pos, ori = pybullet.getBasePositionAndOrientation(self._robot_id)
-        lin_vel, ang_vel = pybullet.getBaseVelocity(self._robot_id)
 
-        #gets from pybullet position, velocity and effort of each joint
+        # Get base linear and angular velocity (world frame)
+        lin_vel_world, ang_vel_world = pybullet.getBaseVelocity(self._robot_id)
+
+        # Compute rotation matrix world -> body (robot) frame
+        rot_matrix = np.array(pybullet.getMatrixFromQuaternion(ori)).reshape(3, 3)
+        world_to_body = rot_matrix.T  # Transpose to go from world to body frame
+
+        # Transform velocities to robot frame
+        lin_vel_body = world_to_body @ np.array(lin_vel_world)
+        ang_vel_body = world_to_body @ np.array(ang_vel_world)
+
+        # Get joint positions, velocities, and efforts
         joint_positions = []
         joint_velocities = []
         for joint in self._motor_joints:
@@ -328,14 +339,14 @@ class Agent:
             joint_velocities.append(state[1])
             joint.effort = state[3]
 
-        #updates the agent state with all the new data
+        # Update agent state
         self._state.base_position = np.array(pos)
         self._state.base_orientation = np.array(ori)
-        self._state.linear_velocity = np.array(lin_vel)
-        self._state.angular_velocity = np.array(ang_vel)
+        self._state.linear_velocity = lin_vel_body      # stored in robot frame
+        self._state.angular_velocity = ang_vel_body     # stored in robot frame
         self._state.joint_positions = np.array(joint_positions)
         self._state.joint_velocities = np.array(joint_velocities)
-        self._state.feet_contacts = self._get_feet_contacts
+        self._state.feet_contacts = self._get_feet_contacts()
 
     def _update_joint_history(self):
         self._joint_history.append((self._state.joint_positions, self._state.joint_velocities))
@@ -344,6 +355,16 @@ class Agent:
     # --- Accessors ---
     @property
     def state(self) -> AgentState:
+        """
+        Return the current state of the agent. This property provides access to:
+        - position of the base in worldspace coordinates
+        - orientation of the base as a quaternion
+        - linear velocity of the base in the agent's own space coordinates
+        - angular velocity of the base in the agent's own space coordiantes
+        - a set of the agent's feet currently touching the ground
+        - the position of each joint as an angle (rad) inside an array
+        - the velocity of each joint (rad/s) inside an array
+        """
         return self._state
 
     @property
@@ -402,7 +423,7 @@ class Agent:
                 link_state = pybullet.getLinkState(
                     self._robot_id,
                     joint.link_id,
-                    physicsClientId=self.physics_client
+                    physicsClientId=self._env.physics_client
                 )
                 # link_state[0] è la worldLinkFramePosition
                 feet_positions.append(link_state[0])
@@ -443,7 +464,7 @@ class Agent:
         # 3. Trovare la direzione "su" del robot, u_body
         _, orientation_quat = pybullet.getBasePositionAndOrientation(
             self._robot_id, 
-            physicsClientId=self.physics_client
+            physicsClientId=self._env.physics_client
         )
         rot_matrix = np.array(pybullet.getMatrixFromQuaternion(orientation_quat)).reshape(3, 3)
         u_body = rot_matrix[:, 2]  # Versore z locale espresso rispetto alle coordinate globali
