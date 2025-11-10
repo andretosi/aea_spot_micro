@@ -5,27 +5,27 @@ from spotmicro.agent.command import Command
 
 class Controller(ABC):
     def __init__(self):
-        self._target_linear_velocity = np.zeros(2)
-        self._target_angular_velocity = np.zeros(1)
+        self._linear_velocity = np.zeros(2)
+        self._angular_velocity = np.zeros(1)
 
     @abstractmethod
-    def update_reference(self, *args, **kwargs) -> Command:
+    def update(self, *args, **kwargs) -> Command:
         """
         Set target velocities to the commanded value
         """
         pass   
 
     @property
-    def target_linear_velocity(self) -> np.ndarray:
+    def linear_velocity(self) -> np.ndarray:
         """
         Get the NORMALIZED target velocity for locomotion.
         It is in the form np.ndarray([vx, vy])
         """
-        return self._target_linear_velocity
+        return self._linear_velocity
 
     
     @property
-    def target_angular_velocity(self) -> np.ndarray:
+    def angular_velocity(self) -> np.ndarray:
         """
         Get the NORMALIZED value for target angular velocity.
         It is just one value inside an np.ndarray representing angular velocity along the z axis
@@ -35,10 +35,21 @@ class Controller(ABC):
 class RandomController(Controller):
     def __init__(self):
         super().__init__()
+        self._commands = ["forward", "backwards", "step_sx", "step_dx", "stand"]
+        self._command = np.zeros(2)
+        self._direction = np.zeros(1)
         raise NotImplementedError("RandomController is not implemented yet")
     
-    #TODO
-    def update_reference(self, *args, **kwargs):
+    def update(self, *args, **kwargs): 
+        if self._change_command():
+           self.command =  self._sample_commands()
+        if self._change_direction():
+            self.direction = self._new_direction()
+
+    def _sample_command(self):
+        """
+        effectively changes the value of x or y in command, so that it is (+-1,0) or (0, +-1)
+        """
         pass
 
 class MnKController(Controller):
@@ -49,7 +60,7 @@ class MnKController(Controller):
     def update_reference(self, *args, **kwargs):
         pass
 
-class joystickController(Controller):
+class JoystickController(Controller):
     def __init__(self):
         super().__init__()
         raise NotImplementedError("JoysticController is not implemented yet")
@@ -69,7 +80,7 @@ class controllerFactory(ABC):
         elif controller_type == "mnk":
             return MnKController()
         if controller_type == "joystick":
-            return joystickController()
+            return JoystickController()
         else:
             raise ValueError(f"Requested controller ({controller_type}) does not exist")
         

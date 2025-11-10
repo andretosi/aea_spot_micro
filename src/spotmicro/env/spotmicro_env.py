@@ -347,7 +347,7 @@ class SpotmicroEnv(gym.Env):
                 - info (dict): Contains auxiliary diagnostic information.
         """
 
-        self._agent.controller.update_reference()
+        self._agent.controller.update()
         observation = self._step_simulation(action)
         self._episode_step_counter += 1 #updates the step counter (used to check against timeouts)
         reward, reward_info = self._calculate_reward(action)
@@ -486,8 +486,8 @@ class SpotmicroEnv(gym.Env):
         obs.extend(self._joint_positions_norm(self._agent.joint_history[4][0]))
         obs.extend(self._joint_velocities_norm(self._agent.joint_history[4][1]))
         obs.extend(self._agent.previous_action)
-        obs.extend(self._agent.controller.target_linear_velocity)
-        obs.extend(self._agent.controller.target_angular_velocity)
+        obs.extend(self._agent.controller.linear_velocity)
+        obs.extend(self._agent.controller.angular_velocity)
 
         assert len(obs) == self._OBS_SPACE_SIZE, f"Expected 94 elements, got {len(obs)}"
 
