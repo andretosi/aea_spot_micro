@@ -30,7 +30,7 @@ class Controller(ABC):
         Get the NORMALIZED value for target angular velocity.
         It is just one value inside an np.ndarray representing angular velocity along the z axis
         """
-        return self._target_angular_velocity
+        return self._angular_velocity
     
 class RandomController(Controller):
     def __init__(self):
