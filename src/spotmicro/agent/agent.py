@@ -5,7 +5,7 @@ from collections import deque
 from importlib.resources import files
 
 from spotmicro.agent.config import Config
-from spotmicro.agent.controller import controllerFactory, Controller
+from spotmicro.agent.controller import Controller
 
 
 #questa classe contiene soltanto dei dati
@@ -158,10 +158,10 @@ class Agent:
 
 
     """
-    def __init__(self, env, config: Config, action_space_size: int):
+    def __init__(self, env, controller: Controller, config: Config, action_space_size: int):
         self._config = config
         self._action_space_size = action_space_size
-        self._controller = controllerFactory.createController(self._config.controller_type)
+        self._controller = controller
         self._env = env
 
         # --- State ---

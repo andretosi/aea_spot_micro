@@ -7,8 +7,10 @@ import time
 
 from spotmicro.env.spotmicro_env import SpotmicroEnv
 from reward_functions.walking_reward_function import reward_function, RewardState
+from spotmicro.agent.controller import Controller
 
-env = SpotmicroEnv(use_gui=True, reward_fn=reward_function, reward_state=RewardState())
+ctrl = Controller.from_randomController()
+env = SpotmicroEnv(ctrl, use_gui=True, reward_fn=reward_function, reward_state=RewardState())
 obs, _ = env.reset()
 print("RESET")
 time.sleep(2)

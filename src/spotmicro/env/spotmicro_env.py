@@ -9,6 +9,7 @@ import time
 from spotmicro.agent.config import Config
 from spotmicro.agent.agent import Agent
 from spotmicro.env.terrain import Terrain
+from spotmicro.agent.controller import Controller
 
 
 """
@@ -96,7 +97,7 @@ class SpotmicroEnv(gym.Env):
             - pitch: (of the base)
             - episode_step
 """
-    def __init__(self, envConfig="configs/envConfig.yaml", agentConfig="configs/agentConfig.yaml", terrainConfig="configs/terrainConfig.yaml", use_gui=False, reward_fn=None, reward_state=None, dest_save_file=None, src_save_file=None, writer=None):
+    def __init__(self, controller: Controller, envConfig="configs/envConfig.yaml", agentConfig="configs/agentConfig.yaml", terrainConfig="configs/terrainConfig.yaml", use_gui=False, reward_fn=None, reward_state=None, dest_save_file=None, src_save_file=None, writer=None):
         """
         Parameters
         ------------
@@ -208,7 +209,7 @@ class SpotmicroEnv(gym.Env):
         )
 
         #Initialize the agent object
-        self._agent = Agent(self, Config(agentConfig), self._ACT_SPACE_SIZE)
+        self._agent = Agent(self, controller, Config(agentConfig), self._ACT_SPACE_SIZE)
 
         self._dest_save = dest_save_file
         if self._dest_save is not None:
@@ -241,8 +242,8 @@ class SpotmicroEnv(gym.Env):
             "total_steps_counter": self._total_steps_counter,
             "previous_action": self._agent.previous_action,
             "joint_history": list(self._agent.joint_history),
-            "target_linear_velocity": self._agent.controller.target_linear_velocity,
-            "target_angular_velocity": self._agent.controller.target_angular_velocity
+            "target_linear_velocity": self._agent.controller.input.as_array[:2],
+            "target_angular_velocity": self._agent.controller.input.as_array[2]
         }
 
         with open(self._dest_save, "wb") as f:
@@ -454,11 +455,6 @@ class SpotmicroEnv(gym.Env):
         vel_norm = [np.tanh(vel / self._agent.config.max_joint_velocity) for vel in vels] # Normalize velocity with resect to a hypotetical max velocity (10 rad/s)
         return vel_norm
 
-    
-    #Where to insert the controller? Options are:
-    # - Env has a reference of the controller. But what if multiple entities are controlled?
-    # - Controller lives outside the env -> breaks the interface
-    # - Each controllable  entity has its controller -> Agent owns its controller
     def _get_observation(self) -> np.ndarray:
         """
         - 0-2: gravity vector
@@ -486,8 +482,7 @@ class SpotmicroEnv(gym.Env):
         obs.extend(self._joint_positions_norm(self._agent.joint_history[4][0]))
         obs.extend(self._joint_velocities_norm(self._agent.joint_history[4][1]))
         obs.extend(self._agent.previous_action)
-        obs.extend(self._agent.controller.linear_velocity)
-        obs.extend(self._agent.controller.angular_velocity)
+        obs.extend(self._agent.controller.input.as_array)
 
         assert len(obs) == self._OBS_SPACE_SIZE, f"Expected 94 elements, got {len(obs)}"
 
