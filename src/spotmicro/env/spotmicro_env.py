@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import inspect, os, pickle, warnings
 import time
 
-from spotmicro.agent.config import Config
+from spotmicro.config import Config
 from spotmicro.agent.agent import Agent
 from spotmicro.env.terrain import Terrain
 from spotmicro.agent.controller import Controller
