@@ -12,3 +12,4 @@ policy_training/logs
 *.txt
 dockerfile
 logs
+.egg-info
