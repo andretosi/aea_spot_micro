@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from spotmicro.agent.input import Input
+import numpy as np
 
 class Device(ABC):
     @abstractmethod
@@ -19,19 +20,20 @@ class Device(ABC):
 #TODO
 class RandomController(Device):
     def __init__(self):
-        pass
+        self._input = Input()
 
     def update(self) -> None:
         """
-        Just a dummy for now
+        Update the internal state of the controller.
+        May randomly change the input
         """
         pass
 
     def read(self) -> Input:
         """
-        Just a dummy for now
+        Obtain the current input to give to the agent
         """
-        return Input(0.0, 0.0, 0.0)
+        return self._input
 
 class Joystick(Device):
     def __init__(self):
