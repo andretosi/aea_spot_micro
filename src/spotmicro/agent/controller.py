@@ -1,6 +1,6 @@
 import numpy as np
 from spotmicro.agent.input import Input
-from spotmicro.agent.device import Device, RandomController
+from spotmicro.devices.random_controller import RandomController
 
 class Controller():
     def __init__(self):
