@@ -1,18 +1,10 @@
 import numpy as np
 from spotmicro.agent.input import Input
-from spotmicro.devices.random_controller import RandomController
+from spotmicro.devices.device import Device
 
 class Controller():
-    def __init__(self):
-       self._device = None
-
-    #TODO: add parameters
-    @classmethod
-    def from_randomController(cls):
-        self = cls()
-        self._device = RandomController()
-        
-        return self
+    def __init__(self, device: Device):
+       self._device = device
 
     def update(self) -> None:
         #@TODO: probabily need to do more?
