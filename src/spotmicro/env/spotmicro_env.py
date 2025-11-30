@@ -24,8 +24,8 @@ class ConfigEnv(Config):
         #these attributes are used to configure the terrain
         attributes = ["c_potholes", "c_ridges", "c_roughness"]
         for attr in attributes:
-            if not hasattr(self, attr):
-                setattr(self, attr, 0.0)
+            if not hasattr(self, f"_{attr}"):
+                self.set_property(attr, 0.0)
         
 
 
