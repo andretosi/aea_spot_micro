@@ -5,6 +5,7 @@ from collections import deque
 from importlib.resources import files
 
 from spotmicro.config import Config
+from spotmicro.devices.device import Device
 from spotmicro.agent.controller import Controller
 
 
@@ -158,10 +159,10 @@ class Agent:
 
 
     """
-    def __init__(self, env, controller: Controller, config: Config, action_space_size: int):
+    def __init__(self, env, device: Device, config: Config, action_space_size: int):
         self._config = config
         self._action_space_size = action_space_size
-        self._controller = controller
+        self._controller = Controller(device)
         self._env = env
 
         # --- State ---

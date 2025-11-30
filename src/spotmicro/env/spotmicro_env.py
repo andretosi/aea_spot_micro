@@ -9,7 +9,7 @@ import time
 from spotmicro.config import Config
 from spotmicro.agent.agent import Agent
 from spotmicro.env.terrain import Terrain
-from spotmicro.agent.controller import Controller
+from spotmicro.devices.device import Device
 
 
 """
@@ -97,7 +97,7 @@ class SpotmicroEnv(gym.Env):
             - pitch: (of the base)
             - episode_step
 """
-    def __init__(self, controller: Controller, envConfig="configs/envConfig.yaml", agentConfig="configs/agentConfig.yaml", terrainConfig="configs/terrainConfig.yaml", use_gui=False, reward_fn=None, reward_state=None, dest_save_file=None, src_save_file=None, writer=None):
+    def __init__(self, device: Device, envConfig="configs/envConfig.yaml", agentConfig="configs/agentConfig.yaml", terrainConfig="configs/terrainConfig.yaml", use_gui=False, reward_fn=None, reward_state=None, dest_save_file=None, src_save_file=None, writer=None):
         """
         Parameters
         ------------
@@ -209,7 +209,7 @@ class SpotmicroEnv(gym.Env):
         )
 
         #Initialize the agent object
-        self._agent = Agent(self, controller, Config(agentConfig), self._ACT_SPACE_SIZE)
+        self._agent = Agent(self, device, Config(agentConfig), self._ACT_SPACE_SIZE)
 
         self._dest_save = dest_save_file
         if self._dest_save is not None:

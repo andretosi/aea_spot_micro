@@ -30,8 +30,7 @@ max_norm_height: 0.235
 max_linear_velocity: 2.23
 max_forward_linear_velocity: 2.0
 max_lateral_linear_velocity: 1.0
-max_angular_velocity: 10
+max_angular_velocity: 5
 
 # <--  OTHER STUFF -->
 joint_history_maxlen: 5
-controller_type: "random"
