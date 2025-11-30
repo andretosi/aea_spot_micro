@@ -15,6 +15,7 @@ obs, _ = env.reset()
 
 
 for _ in range(3001):
+    time.sleep(1)
     action = env.action_space.sample()  # Take a random action
     obs, reward, terminated, truncated, info = env.step(action)
     time.sleep(1.0 / 60.0)  # Slow down simulation for visualization
