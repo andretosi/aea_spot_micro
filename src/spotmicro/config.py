@@ -1,6 +1,9 @@
 import yaml
 
 class ValueProvider:
+    """
+    Helper class that provides a unified interface 
+    """
     def __init__(self, value_or_func):
         if callable(value_or_func):
             self.func = value_or_func
@@ -8,7 +11,14 @@ class ValueProvider:
             self.func = lambda: value_or_func
     
     def get(self):
-        return self.func()
+        v = self.func()
+        return v
+
+    def set(self, value_or_func):
+        if callable(value_or_func):
+            self.func = value_or_func
+        else:
+            self.func = lambda: value_or_func
 
 class Config:
     """
@@ -18,7 +28,8 @@ class Config:
     def __init__(self, filename: str):
         """
         The Config constructor takes as input a .yaml file and creates
-        an attribute for each line with "name: value".
+        an attribute for each line with "_name: value".
+        Then, generates a getter (callable with name) and a setter (callable by assigning to name)
 
         Parameters
         -----------
@@ -29,11 +40,23 @@ class Config:
             cfg_dict = yaml.safe_load(f)
 
         for key, value in cfg_dict.items():
-            setattr(self, key, ValueProvider(value))
+            self.set_property(key, value)
             
-            def make_setter(name):
-                def setter(self, value: ValueProvider):
-                    setattr(self, name, value)
-                return setter
-            
-            setattr(self, f"set_{key}", make_setter(key)) #Closes over name! Assign a setter for each attribute
+    
+    def set_property(self, key: str, value):
+        # Instance-level storage
+        setattr(self, f"_{key}", ValueProvider(value))
+
+        # Property factory
+        def make_property(name):
+            def getter(self):
+                return getattr(self, f"_{name}").get()
+
+            def setter(self, value, lower_bound=None, upper_bound=None):
+                getattr(self, f"_{name}").set(value, lb=lower_bound, ub=upper_bound)
+
+            return property(getter, setter)
+
+        # Assign property to the *class*, not the instance
+        if not hasattr(self.__class__, key):
+            setattr(self.__class__, key, make_property(key))
