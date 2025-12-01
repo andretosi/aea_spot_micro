@@ -7,7 +7,7 @@ from spotmicro.env.spotmicro_env import SpotmicroEnv
 from reward_functions.walking_reward_function import reward_function, RewardState
 from spotmicro.devices.random_controller import RandomController
 
-run = "prova1"
+run = "prova2"
 DATA_DIR =  Path("data") / f"{run}_results"
 DATA_DIR.mkdir(parents=True, exist_ok=True)  # ensure directory exists
 
@@ -22,8 +22,8 @@ env = SpotmicroEnv(
 obs, _ = env.reset()
 
 # Load your trained model
-#model = PPO.load(f"policies/ppo_{run}")  # or path to your .zip
-model = PPO.load(str(DATA_DIR / "checkpoints" / f"ppo_{run}_1000000_steps"))
+model = PPO.load( str(DATA_DIR / f"ppo_{run}_final"))  # or path to your .zip
+#model = PPO.load(str(DATA_DIR / "checkpoints" / f"ppo_{run}_1000000_steps"))
 print(f"num steps: {env.num_steps}")
 
 # Run rollout
