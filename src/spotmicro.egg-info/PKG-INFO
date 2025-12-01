@@ -2,7 +2,7 @@ Metadata-Version: 2.4
 Name: spotmicro
 Version: 0.1.0
 Summary: Framework and training tools for the SpotMicro quadruped
-Author-email: Your Name <your@email.com>
+Author-email: John Smith <your@email.com>
 License: MIT License
         
         Copyright (c) 2024 Andrea Tosi
