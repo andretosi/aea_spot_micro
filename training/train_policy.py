@@ -7,8 +7,8 @@ from spotmicro.env.spotmicro_env import SpotmicroEnv
 from spotmicro.devices.random_controller import RandomController
 from reward_functions.standing_reward_function import reward_function, RewardState
 
-TOTAL_STEPS = 15_000_000
-run = "prova1"
+TOTAL_STEPS = 5_000_000
+run = "prova2"
 DATA_DIR =  Path("data") / f"{run}_results"
 DATA_DIR.mkdir(parents=True, exist_ok=True)  # ensure directory exists
 
