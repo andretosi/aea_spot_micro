@@ -5,7 +5,7 @@ from pathlib import Path
 
 from spotmicro.env.spotmicro_env import SpotmicroEnv
 from spotmicro.devices.random_controller import RandomController
-from reward_functions.walking_reward_function import reward_function, RewardState
+from reward_functions.standing_reward_function import reward_function, RewardState
 
 TOTAL_STEPS = 15_000_000
 run = "prova1"
