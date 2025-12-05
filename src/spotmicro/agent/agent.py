@@ -260,6 +260,9 @@ class Agent:
         # Reset actions to "homing" which is 0
         self._action = np.zeros(len(self._motor_joints), dtype=np.float32)
         self._previous_action = np.zeros(len(self._motor_joints), dtype=np.float32)
+
+        #Reset controller
+        self.controller.reset()
     
     def apply_action(self, action: np.ndarray):
         """

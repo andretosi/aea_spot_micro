@@ -9,6 +9,9 @@ class Controller():
     def update(self) -> None:
         #@TODO: probabily need to do more?
         self._device.update()
+    
+    def reset(self) -> None:
+        self._device.reset()
 
     @property
     def input(self) -> Input:

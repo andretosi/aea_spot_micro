@@ -1,4 +1,4 @@
-#Assignee: Nico
+#Author: Nico
 from spotmicro.devices.device import Device
 from spotmicro.agent.input import Input
 from spotmicro.config import Config
@@ -7,6 +7,22 @@ import random, os
 
 
 class RandomController(Device):
+    """
+    A simple device that provides the agent random inputs.
+    How the input is sampled, depends on the current state of the device. There are three possible states: Walk, Turn, Still.
+    \nThe device stays on a state for a randomly sampled number of steps. 
+    In short, the device is modeled as a Markov Chain: the transition from state A to state B happens with a given probability.
+
+    Methods
+    --------
+    update -> None:
+        Update the current state, and transition to a new one if necessary. Should be invoked at every control step
+    read -> Input:
+        Read the current input. Should be called by the Env to provide the input to the policy and the reward function
+    reset -> None:
+        Bring the device to the initial conditions, to start a new episode
+
+    """
     def __init__(self, config="config/RandomControllerConfig.yaml", **kwargs):
         
         self._input = Input()
@@ -15,8 +31,9 @@ class RandomController(Device):
         self.walk_state = WalkState(self)
         self.turn_state = TurnState(self)
         self.still_state = StillState(self)
+        self.base_state = BaseState(self)
 
-        self._state = State(self)
+        self._state = self.base_state
 
     def update(self) -> None:
         """
@@ -34,6 +51,10 @@ class RandomController(Device):
         Obtain the current input to give to the agent
         """
         return self._input
+    
+    def reset(self) -> None:
+        self._state.reset()
+        self._state = self.base_state
 
 class State:
     """
@@ -41,31 +62,74 @@ class State:
     """
     def __init__(self, controller: RandomController):
         self.controller = controller
+        self.remaining_steps = 0
     
     def __str__(self):
         return "Base state"
 
     def update(self):
-        states = [self.controller.still_state, self.controller.turn_state, self.controller.walk_state]
-        probabilities = [self.controller._config.p_base2still, self.controller._config.p_base2turn, self.controller._config.p_base2walk] #ORDER MATTERS HERE
-        return self._next_state(states, probabilities)
-
-    def _next_state(self, states: list, probabilities: list):
+        self.remaining_steps -= 1
+        if self.remaining_steps <= 0:
+            return self._next_state()
+        else:
+            return self
+    
+    def _next_state(self):
         """
-        Randomly chose a state from the given ones (list of States), assigning to each a certain probability (list of probabilities)
-        State in position 0 will have a probabilities[0] probability of being returned, and so on
-
-        Parameters
-        ------
-        states: list[State]
-            An ordered list of the states it is possible to transition to from the present state
-        probabilities: list[float]
-            An ordered list of floats that represent the probability of transitioning to the associated state
+        Randomly chose a state from the given ones assigning to each a certain probability.
+        \nState in position 0 will have a probabilities[0] probability of being returned, and so on.
+        \nThis method should be overridden by each subclass
         """
-        return random.choices(states, probabilities, k=1)[0]
-        
+        return self._map_state(random.choices(list(self.transitions.keys()), list(self.transitions.values()))[0])
+    
+    def _map_state(self, tag: str):
+        if tag == "still":
+            #print(f"Transitioning to {self.controller.still_state}")
+            return self.controller.still_state
+        elif tag == "walk":
+            #print(f"Transitioning to {self.controller.walk_state}")
+            return self.controller.walk_state
+        elif tag == "turn":
+            #print(f"Transitioning to {self.controller.turn_state}")
+            return self.controller.turn_state
 
+    def reset(self):
+        self.remaining_steps = 0
+
+class BaseState(State):
+    """
+    SPECS
+    -----
+    **REQUIRES**: State implements an update method 
+    **SIGNALS**: cannot be entered
+    **ENSURES**: remaining_steps <= 0
+    """
+    def __init__(self, controller: RandomController):
+        super().__init__(controller)
+        self.transitions = {
+            "still": self.controller._config.p_base2still,
+            "turn": self.controller._config.p_base2turn,
+            "walk": self.controller._config.p_base2walk
+        }
+        print("Initializing base state")
+
+    def __str__(self):
+        return "Base state"
+    
+    def enter(self):
+        raise NotImplementedError("Base state does not implement the enter method, since it shpuld not be entered")
+    
+    def _IR(self) -> bool:
+        return (self.remaining_steps <= 0)
+    
 class TurnState(State):
+    def __init__(self, controller: RandomController):
+        super().__init__(controller)
+        self.transitions = {
+            "still": self.controller._config.p_turn2still,
+            "walk": self.controller._config.p_turn2walk
+        }
+
     def __str__(self):
         return "Turning state"
 
@@ -77,15 +141,6 @@ class TurnState(State):
             self.controller._config.w_steps_var
         ))
     
-    def update(self):
-        self.remaining_steps -= 1
-        if self.remaining_steps <= 0:
-            states = [self.controller.still_state, self.controller.walk_state]
-            probabilities = [self.controller._config.p_turn2still, self.controller._config.p_turn2walk]
-            return self._next_state(states, probabilities)
-        else:
-            return self
-    
     def _sample_command(self):
         w = np.clip(np.random.normal(self.controller._config.w_mean, self.controller._config.w_var), -1.0, 1.0)
         R = np.clip(np.random.normal(self.controller._config.w_radius_mean, self.controller._config.w_radius_var), -1.0, 1.0) #Should be normalized.. does not cause any trouble for now
@@ -94,6 +149,13 @@ class TurnState(State):
         return vx, 0.0, w
 
 class WalkState(State):
+    def __init__(self, controller: RandomController):
+        super().__init__(controller)
+        self.transitions = {
+            "still": self.controller._config.p_walk2still,
+            "turn": self.controller._config.p_walk2turn
+        }
+
     def __str__(self):
         return "Walk state"
 
@@ -104,20 +166,19 @@ class WalkState(State):
             self.controller._config.v_steps_mean,
             self.controller._config.v_steps_var
         ))
-
-    def update(self):
-        self.remaining_steps -= 1
-        if self.remaining_steps <= 0:
-            states = [self.controller.still_state, self.controller.turn_state]
-            probabilities = [self.controller._config.p_walk2still, self.controller._config.p_walk2turn]
-            return self._next_state(states, probabilities)
-        return self
     
     def _sample_command(self):
         vx, vy = np.clip(tuple(np.random.normal(self.controller._config.v_mean, self.controller._config.v_var)), (-1.0, -1.0), (1.0, 1.0))
         return vx, vy, 0.0
 
 class StillState(State):
+    def __init__(self, controller: RandomController):
+        super().__init__(controller)
+        self.transitions = {
+            "walk": self.controller._config.p_still2walk,
+            "turn": self.controller._config.p_still2turn
+        }
+
     def __str__(self):
         return "Still state"
 
@@ -127,14 +188,6 @@ class StillState(State):
             self.controller._config.s_steps_mean,
             self.controller._config.s_steps_var
         ))
-
-    def update(self):
-        self.remaining_steps -= 1
-        if self.remaining_steps <= 0:
-            states = [self.controller.walk_state, self.controller.turn_state]
-            probabilities = [self.controller._config.p_still2walk, self.controller._config.p_still2turn]
-            return self._next_state(states, probabilities)
-        return self
 
 class RandomControllerConfig(Config):
     """
@@ -175,8 +228,8 @@ class RandomControllerConfig(Config):
                 self.set_property(key, value)
         
         #TODO? also ensure these checks when setting stuff. Authomatic way of handling this? A transition table for each node? meh
-        print(self.p_base2still)
-        print(type(self.p_base2still))
+        #print(self.p_base2still)
+        #print(type(self.p_base2still))
         if self.p_base2still + self.p_base2walk + self.p_base2turn != 1.0:
             raise ValueError("Sum of probabilities outgoing of base state must be exactly 1.0")
         if self.p_still2walk + self.p_still2turn != 1.0:

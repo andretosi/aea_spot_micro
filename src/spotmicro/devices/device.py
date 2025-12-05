@@ -17,6 +17,12 @@ class Device(ABC):
         """
         pass
 
+    @abstractmethod
+    def reset(self) -> None:
+        """
+        Reset the device to its initial state. Called when resetting the environment
+        """
+
 class DeterministicController(Device):
     def __init__(self):
         raise NotImplementedError("DeterministicController device is not implemented yet")
