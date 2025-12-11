@@ -1,36 +1,10 @@
-from dataclasses import dataclass, field, asdict # I don't know anything about field or asdict, explain them to me
-from typing import Optional, Any # I don't know anything about these things, explain them to me pls
+from dataclasses import dataclass, field
+from typing import Optional, Any
 import numpy as np
 from pyfastnoiselite.pyfastnoiselite import FastNoiseLite, NoiseType, FractalType
 import matplotlib.pyplot as plt
 from pathlib import Path
 import pybullet
-import yaml
-
-@dataclass
-class HeightmapConfig:
-    """
-    Contains the heightmap parameters.
-    generation_params is a flexible dictionary for noise parameters (seed, x, y, etc.).
-    """
-    method: str  # "mesh" or "heightmap"
-    scale: list[float] = field(default_factory=lambda: [1.0, 1.0, 1.0]) # Why lambda? what does it mean? I don't understand
-    origin: list[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
-    
-    mesh_path: Optional[str] = None
-    generation_params: dict[str, Any] = field(default_factory=dict)
-
-    def save(self, filename: str):
-        """Saves the current configuration to a YAML file."""
-        with open(filename, 'w') as f:
-            yaml.dump(asdict(self), f, default_flow_style=False)
-
-    @classmethod
-    def load(cls, filename: str):
-        """Loads the configuration from a YAML file."""
-        with open(filename, 'r') as f:
-            data = yaml.safe_load(f)
-        return cls(**data)
 
 
 class Heightmap:
@@ -128,10 +102,14 @@ class Heightmap:
         rows=y
         heightmap_data = np.zeros((rows, cols))
         height_current = z_min
+        
         for i in range(0, cols, 2):
-            heightmap_data[:, i-1] = height_current
-            heightmap_data[:, i] = height_current
-            height_current += (z_max - z_min) / (cols - 1)
+            if i < cols:
+                heightmap_data[:, i] = height_current
+            if i + 1 < cols:
+                heightmap_data[:, i+1] = height_current
+            
+            height_current += (z_max - z_min) / (cols / 2)
         
         return cls(heightmap_data)
 
@@ -151,7 +129,7 @@ class Heightmap:
         """
         num_rows, num_columns = self.data.shape
         fig, ax = plt.subplots(figsize=(8, 6))
-        im = ax.imshow(self.data.heightmap,
+        im = ax.imshow(self.data,
                     cmap="terrain",
                     extent=[0, num_columns, 0, num_rows])
         ax.set_title("2D Visualization of the Heightmap")
@@ -174,18 +152,6 @@ class TerrainConfig:
     
     mesh_path: Optional[str] = None
     generation_params: dict[str, Any] = field(default_factory=dict)
-
-    def save(self, filename: str):
-        """Saves the current configuration to a YAML file."""
-        with open(filename, 'w') as f:
-            yaml.dump(asdict(self), f, default_flow_style=False)
-
-    @classmethod
-    def load(cls, filename: str):
-        """Loads the configuration from a YAML file."""
-        with open(filename, 'r') as f:
-            data = yaml.safe_load(f)
-        return cls(**data)
 
 
 class Terrain:
@@ -254,36 +220,7 @@ class Terrain:
             origin=origin
         )
         return cls(config=config, data=file_path)
-    
-    @classmethod
-    def from_config(cls, config: TerrainConfig):
-        """
-        Creates a Terrain instance from a TerrainConfig object.
-
-        Args:
-            config (TerrainConfig): The configuration object.
-
-        Raises:
-            ValueError: If the generation method in config is unknown.
-
-        Returns:
-            Terrain: A Terrain instance created based on the configuration.
-        """
-        if config.method == "mesh":
-            return cls.from_mesh(config.mesh_path, config.scale, config.origin) # is the error handling not already done in from_mesh?
-        
-        elif config.method == "heightmap":
-            # We use the parameters saved in the generation_params dictionary
-            # If the dictionary is empty, it will use the defaults from from_noise
-            hm = Heightmap.from_noise(**config.generation_params) # Hardcoded, bad! see: https://gemini.google.com/app/35785e95188b807e
-            
-            # We return the instance keeping the same config passed
-            instance = cls(config=config, data=hm)
-            return instance
-        
-        else:
-            raise ValueError(f"Unknown terrain generation method: {config.method}")
-
+   
     def spawn(self, physics_client):
         """
         Spawns the terrain into the PyBullet simulation.
