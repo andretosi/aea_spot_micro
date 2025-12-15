@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from collections import deque
 from importlib.resources import files
 
-from spotmicro.config import Config
+from spotmicro.tools.config import Config
 from spotmicro.devices.device import Device
 from spotmicro.agent.controller import Controller
 

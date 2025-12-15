@@ -6,11 +6,13 @@ from pathlib import Path
 from spotmicro.env.spotmicro_env import SpotmicroEnv
 from reward_functions.walking_reward_function import reward_function, RewardState
 from spotmicro.devices.random_controller import RandomController
+from spotmicro.tools.config import Config
 
 run = "prova2"
 DATA_DIR =  Path("data") / f"{run}_results"
 DATA_DIR.mkdir(parents=True, exist_ok=True)  # ensure directory exists
 
+conf = Config("Prova.yaml")
 dev = RandomController()
 env = SpotmicroEnv(
     dev,

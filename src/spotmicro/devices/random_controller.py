@@ -1,11 +1,12 @@
 #Author: Nico
 from spotmicro.devices.device import Device
 from spotmicro.agent.input import Input
-from spotmicro.config import Config
+from spotmicro.tools.config import Config
+from spotmicro.tools.configurable import configurable
 import numpy as np
 import random, os
 
-
+@configurable
 class RandomController(Device):
     """
     A simple device that provides the agent random inputs.
@@ -23,10 +24,9 @@ class RandomController(Device):
         Bring the device to the initial conditions, to start a new episode
 
     """
-    def __init__(self, config="config/RandomControllerConfig.yaml", **kwargs):
+    def __init__(self, p_base2still=0.3, p_base2walk=0.7, p_base2turn=0.0):
         
         self._input = Input()
-        self._config = RandomControllerConfig(config, **kwargs)
 
         self.walk_state = WalkState(self)
         self.turn_state = TurnState(self)
