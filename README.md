@@ -4,3 +4,6 @@ This project is an open-source version of a robot dog, complete with an advanced
 We plan to develop our own platform and algorithms for training while supporting the full stack of software necessary to port the simulation to a real robot (ROS); everything will have a Python interface. We are actively developing it, so expect frequent updates.
 
 Thanks to the authors of the [Spot Micro](https://spotmicroai.readthedocs.io/en/latest/) project for the CAD models. With love from [AEA](https://www.aeapolimi.it/) (Automation Engineering Association) of Polytechnic University of Milan.
+
+## Related projects
+This project requires a custom bootloader for STM32G431CBU6 MCUs over FDCAN protocol, that is being implemented [here](https://github.com/NicoDelle/can_bootloader).
