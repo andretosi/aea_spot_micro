@@ -1,5 +1,14 @@
-#TODO: implement this
+import yaml
 
+
+"""
+INVARIANT?? Reason through this
+For any configurable instance, all config-relevant attributes:
+- live on the instance
+- are mirrored in central_registry
+- are updated only via constructor, load, or explicit mutation followed by update()
+ALSO IMPORTANT: hide dicts and lists behind a property that retursn by copy? don't want to modify internal structure by accident!
+"""
 class Config:
     #The constructor for the config class needs to generate the first layer of parameters with the ones coming from a config file
     def __init__(self, filepath: str = None):
@@ -10,17 +19,26 @@ class Config:
         :param filepath: path to the config.yaml file. If this parameter is not passed, then an empty config object is generated
         :type filepath: str
         """
-        raise NotImplementedError("Config was not implemented yet")
 
-    def save(self, dst_filepath: str):
-        pass
+        self.registered_objects = []
 
-    def load(self, src_filepath: str):
-        pass
+        if filepath is None:
+            self.central_registry = {}
+            return
 
-    def register(self, component_type, component_instance, params):
+        #Create a dict with config params from the filepath
+        with open(filepath, "r") as f:
+            self.central_registry = yaml.safe_load(f)
+        
+
+    def save(self, dst_filepath: str) -> None:
+        with open(dst_filepath, "w") as f:
+            yaml.safe_dump(self.central_registry, f, default_flow_style=False)
+
+    def register(self, component_type, component_instance, init_params) -> dict:
         """
-        Add the parameters of an instance of a configurable class to the registry, in its namespace
+        Add the parameters of an instance of a configurable class to the registry, in its namespace.\n
+        Returns a dictionary holding all parameters relating to the given class *set in the config file*, excluding those set by the constructor.
 
         
         :param component_type: class of the component
@@ -30,11 +48,40 @@ class Config:
         
         if not isinstance(component_instance, component_type):
             raise ValueError("Mismatch between declared component type and type of the component instance provided")
+        
+        #TODO double check all the following logic
+        if component_type not in self.registered_objects:
+            self.registered_objects.append(component_instance)
+        
+        if component_type.__name__ in self.central_registry.keys():
+            obj_registry = self.central_registry[component_type.__name__]
+        else:
+            obj_registry = {}
 
-        #If it doesn't already exist, create a dataclass for that component and make it a member of the config
+        #Check init_params against config_params and return a dict holding config params that were not overridden
+        for key, _ in init_params.items():
+            if key in obj_registry.keys():
+                obj_registry.pop(key)
         
+        d = obj_registry.copy()
+        self.central_registry[component_type.__name__] = obj_registry | init_params #Hold ALL attributes
         
-        raise NotImplementedError("Not implemented yet")
+        return d
+
+    """
+    @signals RuntimeError when register(obj_type, obj, params) was not called before update
+    @ensures central_registry[cls_name] is up to date with the parameters held by the instance
+    """
+    def update(self, obj, params: dict):
+        cls_name = obj.__class__.__name__
+        if cls_name not in self.central_registry.keys():
+            raise RuntimeError("Tried to update the registry of an object before registering it")
+
+        for name, value in params.items():
+            self.central_registry[cls_name][name] = value
+        
+
+
     
     def is_acceptable_type(self, value) -> bool:
         """
@@ -43,4 +90,7 @@ class Config:
         
         :param value: config parameter to filter
         """
-        pass
+        #TODO implement this!!
+
+        return True
+
