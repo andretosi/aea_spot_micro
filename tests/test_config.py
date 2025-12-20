@@ -1,4 +1,4 @@
-from spotmicro.tools.config import Config
+from spotmicro.tools.config import Config, RegisterException
 
 import unittest, tempfile, yaml, os
 
@@ -66,7 +66,6 @@ class TestConfigBasic(unittest.TestCase):
         self.assertIn(obj1, cfg.registered_objects) #What was in before is still in
         self.assertEqual(len(cfg.registered_objects), 2)
         self.assertDictEqual(cfg.central_registry, expected_registry)
-
     
 
     def test_register_overrides_file_params(self):
@@ -137,3 +136,62 @@ class TestConfigBasic(unittest.TestCase):
             self.assertEqual(cfg.registered_objects, [])
         finally:
             os.remove(path)
+
+    def test_invalid_inputs(self):
+        #Instantiation with non existent file?
+        with self.assertRaises(FileNotFoundError):
+            Config("nonExistent.yaml")
+    
+    def test_double_object(self):
+        cfg = Config()
+        o1 = Dummy()
+        o2 = Dummy()
+
+        p1 = {"a": 1, "b": 2}
+        p2 = {"a": 3, "b": 4}
+
+        r1 = cfg.register(Dummy, o1, p1)
+        with self.assertRaises(RegisterException):
+            r2 = cfg.register(Dummy, o2, p2)
+    
+    def test_empty_params(self):
+        cfg = Config()
+        o = Dummy()
+        p = {}
+        expected_registry = {
+            "Dummy": {}
+        }
+
+        r = cfg.register(Dummy, o, p)
+        self.assertDictEqual(r, {})
+        self.assertDictEqual(cfg.central_registry, expected_registry)
+
+    def test_invalid_usage(self):
+        cfg = Config()
+        o = Dummy()
+        p1 = {"a": 1}
+
+        with self.assertRaises(RuntimeError):
+            cfg.update(o, p1)
+        #Test that state of config was not modified
+        self.assertDictEqual(cfg.central_registry, {})
+        self.assertEqual(len(cfg.registered_objects), 0)
+    
+    def test_save_empty(self):
+        cfg = Config()
+        o = Dummy()
+        p1 = {}
+
+        with tempfile.NamedTemporaryFile(mode="r", delete=False) as f:
+            path = f.name
+
+        try:
+            cfg.save(path)
+
+            with open(path, "r") as f:
+                data = yaml.safe_load(f)
+
+            self.assertEqual(data, {})
+        finally:
+            os.remove(path)
+    

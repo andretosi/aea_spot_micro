@@ -1,6 +1,7 @@
-from spotmicro.tools.config import Config
+from spotmicro.tools.config import Config, ConfigError
 import inspect, yaml, os
 from functools import wraps
+
 
 def configurable(cls):
     """
@@ -15,7 +16,7 @@ def configurable(cls):
 
     sig_params = init_sig.parameters
 
-    # 1. Ensure `config` exists
+    # 1. Ensure config file exists
     if "config" not in sig_params:
         raise ValueError(
             f"Every configurable class must have a parameter named 'config' ({cls})"
@@ -60,6 +61,9 @@ def configurable(cls):
 
         #Can i trust this line? register works (guaranteed by tests (?)) so the culprit of test 8 must be overridden_params?
         config_parameters = self.config.register(cls, self, overridden_params) #register the initialized instance to config
+        for c_param in config_parameters.keys():
+            if c_param not in default_params.keys():
+                raise ConfigError(f"Parameter {c_param} found in config file provided for {self.__class__.__name__} is invalid, because it was not defined in the constructor of the aforementioned object")
         
         #bind all config parameters to attributes
         for name, value in config_parameters.items():

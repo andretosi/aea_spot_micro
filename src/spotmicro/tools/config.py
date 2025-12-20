@@ -1,5 +1,11 @@
 import yaml
 
+class RegisterException(Exception):
+    """Raised when attempting to register an invalid or duplicate component."""
+
+class ConfigError(Exception):
+    """Raises when config is somwhow malformed"""
+
 """
 INVARIANT?? Reason through this
 For any configurable instance, all config-relevant attributes:
@@ -34,6 +40,7 @@ class Config:
         with open(dst_filepath, "w") as f:
             yaml.safe_dump(self.central_registry, f, default_flow_style=False)
 
+    #TODO could use a name instead of component_type (that we can deduce from instance nonetheless). This would impreve flexibility
     def register(self, component_type, component_instance, init_params) -> dict:
         """
         Add the parameters of an instance of a configurable class to the registry, in its namespace.\n
@@ -46,11 +53,16 @@ class Config:
         """
         
         if not isinstance(component_instance, component_type):
-            raise ValueError("Mismatch between declared component type and type of the component instance provided")
-        
-        #TODO double check all the following logic
-        if component_type not in self.registered_objects:
+            raise ValueError("Mismatch between declared component type and type of the component instance provided") 
+        for o in self.registered_objects:
+            if o.__class__.__name__ == component_type.__name__:
+                raise RegisterException("Two objects of the same class cannot be registered")
+
+        if component_instance not in self.registered_objects:
             self.registered_objects.append(component_instance)
+        else:
+            raise RegisterException("An object cannot be registered more than once")
+        
         
         if component_type.__name__ in self.central_registry.keys():
             obj_registry = self.central_registry[component_type.__name__]
