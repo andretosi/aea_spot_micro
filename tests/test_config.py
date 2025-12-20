@@ -9,7 +9,11 @@ This file should test Config as a standalone class, without considering its inte
 class Dummy:
     pass
 
+class DumDum:
+    pass
+
 class TestConfigBasic(unittest.TestCase):
+    #<----- BASIC FUNCTIONALITIES ----->
     def test_empty_construction(self):
         config = Config()
         self.assertEqual(config.central_registry, {})
@@ -35,15 +39,34 @@ class TestConfigBasic(unittest.TestCase):
     
     def test_register_new_component(self):
         cfg = Config()
-        obj = Dummy()
+        obj1 = Dummy()
+        obj2 = DumDum()
 
         params = {"a": 1, "b": 2}
-        returned = cfg.register(Dummy, obj, params)
+        returned = cfg.register(Dummy, obj1, params)
 
         self.assertEqual(returned, {})
-        self.assertIn(obj, cfg.registered_objects)
+        self.assertIn(obj1, cfg.registered_objects)
         self.assertEqual(len(cfg.registered_objects), 1)
         self.assertEqual(cfg.central_registry["Dummy"], params)
+
+        params2 = {"c" : "yeye"}
+        expected_registry = {
+            "Dummy" : {
+                "a" : 1,
+                "b" : 2
+            },
+            "DumDum" : {
+                "c" : "yeye"
+            }
+        }
+        ret2 = cfg.register(DumDum, obj2, params2)
+        self.assertEqual(ret2, {})
+        self.assertIn(obj2, cfg.registered_objects)
+        self.assertIn(obj1, cfg.registered_objects) #What was in before is still in
+        self.assertEqual(len(cfg.registered_objects), 2)
+        self.assertDictEqual(cfg.central_registry, expected_registry)
+
     
 
     def test_register_overrides_file_params(self):
@@ -98,5 +121,19 @@ class TestConfigBasic(unittest.TestCase):
                 data = yaml.safe_load(f)
 
             self.assertEqual(data, {"Dummy": {"x": 10}})
+        finally:
+            os.remove(path)
+
+    #<----- EDGE CASES ----->
+    def test_empty_yaml_file(self):
+        # Create an empty file
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
+            path = f.name
+
+        try:
+            cfg = Config(path)
+            # Should create an empty central_registry
+            self.assertEqual(cfg.central_registry, {})
+            self.assertEqual(cfg.registered_objects, [])
         finally:
             os.remove(path)

@@ -52,7 +52,7 @@ def configurable(cls):
         
         #extract params and their runtime value
         overridden_params = {
-            name : value for name, value in bound.arguments.items()
+            name : value for name, value in kwargs.items()
             if name in default_params and self.config.is_acceptable_type(value)
         }
         
@@ -76,17 +76,18 @@ def configurable(cls):
         :param path: path to the file to dump the config in.
         :type path: str
         """
-
         if not os.path.exists(path):
-            raise FileNotFoundError(f"File \"{path}\" not found")
-        with open(path, "r") as f:
-            cfg = yaml.safe_load(f) or {}
+            open(path, "w").close()  # create empty file
+            cfg = {}
+        else:
+            with open(path, "r") as f:
+                cfg = yaml.safe_load(f) or {}
 
         cls_name = self.__class__.__name__
         if cls_name not in cfg.keys():
             cfg[cls_name] = {}
  
-        cfg[cls_name] = cfg[cls_name] | self.config[cls_name]
+        cfg[cls_name] = cfg[cls_name] | self.config.central_registry[cls_name]
         with open(path, "w") as f:
             yaml.safe_dump(cfg, f, default_flow_style=False)
     #<----- END SAVE   ------>

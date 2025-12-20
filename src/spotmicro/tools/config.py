@@ -1,6 +1,5 @@
 import yaml
 
-
 """
 INVARIANT?? Reason through this
 For any configurable instance, all config-relevant attributes:
@@ -28,7 +27,7 @@ class Config:
 
         #Create a dict with config params from the filepath
         with open(filepath, "r") as f:
-            self.central_registry = yaml.safe_load(f)
+            self.central_registry = yaml.safe_load(f) or {}
         
 
     def save(self, dst_filepath: str) -> None:
@@ -38,7 +37,7 @@ class Config:
     def register(self, component_type, component_instance, init_params) -> dict:
         """
         Add the parameters of an instance of a configurable class to the registry, in its namespace.\n
-        Returns a dictionary holding all parameters relating to the given class *set in the config file*, excluding those set by the constructor.
+        Returns a dictionary holding all parameters relating to the given class *set in the config file*, excluding those overridden by the constructor.
 
         
         :param component_type: class of the component
