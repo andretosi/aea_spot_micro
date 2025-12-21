@@ -85,7 +85,7 @@ class Joint:
             self.gain = config.foot_gain
             self.deadzone = config.foot_deadzone
             self.power = config.foot_power
-    # the neural network outputs a NORALIZED vector with the action that the robot should perform.
+    # the neural network outputs a NORMALIZED vector with the action that the robot should perform.
     # This function converts the vector into a joint position, used by pybullet to move the robot.
     def from_position_to_action(self, pos: float) -> float:
         high, low = self.limits

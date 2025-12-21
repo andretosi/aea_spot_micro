@@ -13,7 +13,7 @@ DATA_DIR =  Path("data") / f"{run}_results"
 DATA_DIR.mkdir(parents=True, exist_ok=True)  # ensure directory exists
 
 conf = Config("Prova.yaml")
-dev = RandomController()
+dev = RandomController(conf)
 env = SpotmicroEnv(
     dev,
     use_gui=True, 
