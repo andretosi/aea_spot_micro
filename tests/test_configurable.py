@@ -9,10 +9,13 @@ class Stub1:
     SUCCESSFULL Stub1
     """
 
-    def __init__(self, config: Config, p1=0.0, p2="param", p3=1):
+    def __init__(self, config: Config, p1=0.0, p2="param", p3=1, p4=None, p5=(1, 1)):
         self.p1 =  p1
         self.p2 = p2
         self.p3 = p3
+        if p4 is not None:
+            self.p4 = None
+        self.p5 = p5
 
 class stub1TestCase(unittest.TestCase):
 
@@ -225,4 +228,20 @@ class stub1TestCase(unittest.TestCase):
         finally:
             os.remove(path1)
             os.remove(path2)
-            
+    
+    def test_tuples(self):
+        cfg_dict = {
+            "Stub1": {
+                "p5": [0.23, 0.0],
+            }
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
+            yaml.safe_dump(cfg_dict, f)
+            path = f.name
+        try:
+            cfg = Config(path)
+            s1 = Stub1(cfg)
+            self.assertTupleEqual(s1.p5, (0.23, 0.0))
+        finally:
+            os.remove(path)

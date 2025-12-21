@@ -7,28 +7,12 @@ import inspect, os, pickle, warnings
 import time
 
 from spotmicro.tools.config import Config
+from spotmicro.tools.configurable import configurable
 from spotmicro.agent.agent import Agent
 from spotmicro.env.terrain import Terrain
 from spotmicro.devices.device import Device
 
-
-"""
-This class inherits the Config class.
-First it creates and inizializes the attributes that show up in the .yaml
-file given in input for the constructor.
-Then it adds additional three attributes shown in the attributes array. 
-"""
-class ConfigEnv(Config):
-    def __init__(self, filename: str):
-        super().__init__(filename)
-        #these attributes are used to configure the terrain
-        attributes = ["c_potholes", "c_ridges", "c_roughness"]
-        for attr in attributes:
-            if not hasattr(self, f"_{attr}"):
-                self.set_property(attr, 0.0)
-        
-
-
+@configurable
 class SpotmicroEnv(gym.Env):
     """
     the SpotMicroEnv class inherits the gym.Env class and overrides his methods in order
@@ -97,7 +81,7 @@ class SpotmicroEnv(gym.Env):
             - pitch: (of the base)
             - episode_step
 """
-    def __init__(self, device: Device, envConfig="configs/envConfig.yaml", agentConfig="configs/agentConfig.yaml", terrainConfig="configs/terrainConfig.yaml", use_gui=False, reward_fn=None, reward_state=None, dest_save_file=None, src_save_file=None, writer=None):
+    def __init__(self, device: Device, config: Config, use_gui=False, reward_fn=None, reward_state=None, dest_save_file=None, src_save_file=None, writer=None):
         """
         Parameters
         ------------

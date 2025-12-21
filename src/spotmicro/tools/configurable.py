@@ -7,6 +7,7 @@ def configurable(cls):
     """
     Decorator function that extends the behaviour of the decorated class by wrapping its init and adding a config attribute.
     It injects the logic to extract kwargs from the class constructor and their defaults in the init, to then pass them to the central registry to hold.
+    This class treats all kwargs parameters as config parameters, besides those whose default value is None or which are not trivially serializable
     
     :param cls: This class is any object that can be configured, and as such should be linked to the central registry
     """
@@ -28,12 +29,12 @@ def configurable(cls):
             f"Parameter 'config' must be required (no default) in ({cls})"
         )
 
-    # 3. Collect configurable (defaulted) parameters
+    # 3. Collect configurable (defaulted) parameters, skipping self and None
     default_params = {
         name: param.default
         for name, param in sig_params.items()
         if name not in ("self", "config")
-        and param.default is not inspect.Parameter.empty
+        and param.default is not (inspect.Parameter.empty or None)
     }
     
 
@@ -49,7 +50,7 @@ def configurable(cls):
         self.config = bound.arguments["config"]
 
         if not isinstance(bound.arguments["config"], Config):
-            raise TypeError(f"config parameter must be of COnfig type, {type(self.config)}was given")
+            raise TypeError(f"config parameter must be of Config type, {type(self.config)}was given")
         
         #extract params and their runtime value
         overridden_params = {
@@ -64,6 +65,8 @@ def configurable(cls):
         for c_param in config_parameters.keys():
             if c_param not in default_params.keys():
                 raise ConfigError(f"Parameter {c_param} found in config file provided for {self.__class__.__name__} is invalid, because it was not defined in the constructor of the aforementioned object")
+
+
         
         #bind all config parameters to attributes
         for name, value in config_parameters.items():

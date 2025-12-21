@@ -34,6 +34,12 @@ class Config:
         #Create a dict with config params from the filepath
         with open(filepath, "r") as f:
             self.central_registry = yaml.safe_load(f) or {}
+
+            #Make any list into a tuple
+            for component_config in self.central_registry.values():
+                for k, v in component_config.items():
+                    if isinstance(v, list):
+                        component_config[k] = tuple(v)
         
 
     def save(self, dst_filepath: str) -> None:
@@ -70,7 +76,7 @@ class Config:
             obj_registry = {}
 
         #Check init_params against config_params and return a dict holding config params that were not overridden
-        for key, _ in init_params.items():
+        for key, val in init_params.items():
             if key in obj_registry.keys():
                 obj_registry.pop(key)
         
