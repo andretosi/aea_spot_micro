@@ -81,7 +81,7 @@ class SpotmicroEnv(gym.Env):
             - pitch: (of the base)
             - episode_step
 """
-    def __init__(self, device: Device, config: Config, reward_fn: callable, use_gui=False, reward_state=None, dest_save_file=None, src_save_file=None, writer=None,
+    def __init__(self, agent: Agent, device: Device, config: Config, reward_fn: callable, use_gui=False, reward_state=None, dest_save_file=None, src_save_file=None, writer=None,
                  max_episode_len=3000, sim_frequency=240, control_frequency=60, joint_history_max_len=5,
                  min_height=0.15, max_height=0.4, max_pitchroll=0.96, tipping_penalty=-2, jump_fall_penalty=-100, survival_reward=3.0, 
                  spawn_height=0.230, target_body_to_feet_height=0.2
@@ -108,6 +108,7 @@ class SpotmicroEnv(gym.Env):
         super().__init__()
         #Config object contains only attributes, whitch value can be set frome the .yaml file
         self.config = config
+        self._agent = agent
 
         #<----- INITIALIZATIONS ----->
         self.physics_client = None
@@ -193,9 +194,7 @@ class SpotmicroEnv(gym.Env):
             restitution=0.0,
             physicsClientId=self.physics_client
         )
-
-        #Initialize the agent object
-        self._agent = Agent(self, device, self.config, self._ACT_SPACE_SIZE)
+        
 
         self._dest_save = dest_save_file
         if self._dest_save is not None:

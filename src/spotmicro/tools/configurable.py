@@ -65,8 +65,6 @@ def configurable(cls):
         for c_param in config_parameters.keys():
             if c_param not in default_params.keys():
                 raise ConfigError(f"Parameter {c_param} found in config file provided for {self.__class__.__name__} is invalid, because it was not defined in the constructor of the aforementioned object")
-
-
         
         #bind all config parameters to attributes
         for name, value in config_parameters.items():
