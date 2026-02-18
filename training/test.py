@@ -12,7 +12,7 @@ from spotmicro.tools.config import Config
 
 cfg = Config()
 dev = RandomController(cfg)
-env = SpotmicroEnv(dev, cfg, reward_function, use_gui=False, reward_state=RewardState())
+env = SpotmicroEnv(dev, cfg, reward_function, use_gui=True, reward_state=RewardState())
 obs, _ = env.reset()
 
 
