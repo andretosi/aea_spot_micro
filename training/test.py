@@ -8,9 +8,11 @@ import time
 from spotmicro.env.spotmicro_env import SpotmicroEnv
 from reward_functions.walking_reward_function import reward_function, RewardState
 from spotmicro.devices.random_controller import RandomController
+from spotmicro.tools.config import Config
 
-dev = RandomController()
-env = SpotmicroEnv(dev, use_gui=True, reward_fn=reward_function, reward_state=RewardState())
+cfg = Config()
+dev = RandomController(cfg)
+env = SpotmicroEnv(dev, cfg, reward_function, use_gui=False, reward_state=RewardState())
 obs, _ = env.reset()
 
 

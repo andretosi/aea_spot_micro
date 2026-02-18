@@ -8,7 +8,6 @@ from spotmicro.tools.config import Config
 from spotmicro.tools.configurable import configurable
 from spotmicro.devices.device import Device
 from spotmicro.agent.controller import Controller
-from spotmicro.env.spotmicro_env import SpotmicroEnv
 
 
 #questa classe contiene soltanto dei dati
@@ -159,12 +158,14 @@ class Agent:
 
 
     """
-    def __init__(self, env: SpotmicroEnv, device: Device, config: Config, action_space_size: int,
+    def __init__(self, env, device: Device, config: Config, action_space_size: int,
                  joint_max_torque=6.5, left_shoulder_hp=-0.0502, right_shoulder_hp=0.0502, front_legs_hp=-0.55, rear_legs_hp=-0.5, front_feet_hp=1.1, rear_feet_hp=1,
                  shoulder_deadzone=0.07, leg_deadzone=0.075, foot_deadzone=0.075, homing_pitch=-0.065,
-                 max_joint_velocity=10, max_norm_height=0.235, max_linear_velocity=2.23, max_forward_linear_velocity=2.0, max_lateral_linear_velocity=1.0, max_angular_velocity=5   
+                 max_joint_velocity=10, max_norm_height=0.235, max_linear_velocity=2.23, max_forward_linear_velocity=2.0, max_lateral_linear_velocity=1.0, max_angular_velocity=5,
+                 joint_history_maxlen=5
             ):
-        self._config = config
+        
+        self.config = config
         self._action_space_size = action_space_size
         self._controller = Controller(device)
         self._env = env
@@ -177,6 +178,7 @@ class Agent:
         self.max_forward_linear_velocity = max_forward_linear_velocity
         self.max_lateral_linear_velocity = max_lateral_linear_velocity
         self.max_angular_velocity = max_angular_velocity
+        self.joint_history_maxlen = joint_history_maxlen
 
         # <----- State ----->
         self._state = AgentState(
@@ -187,6 +189,7 @@ class Agent:
         self._previous_action = np.zeros(self._action_space_size, dtype=np.float32)
         self._joint_history = deque(maxlen=self.joint_history_maxlen) # It will hold tuples with np.ndarray of joint_positions and joint_velocities
 
+        print(f"DEBUG: {self._env.physics_client}")
         urdf_path = str(files("spotmicro.data").joinpath("spotmicroai.urdf"))
         # --- Load URDF ---
         self._robot_id = pybullet.loadURDF(
@@ -389,10 +392,6 @@ class Agent:
         return self._state
 
     @property
-    def config(self) -> Config:
-        return self._config
-
-    @property
     def agent_id(self):
         return self._robot_id
 
@@ -411,13 +410,14 @@ class Agent:
     def action(self) -> np.ndarray:
         return self._action
     
+    #TODO: dunno why i put it here, makes much more sense for it to be in the env. Still...
     @property
     def joint_history(self) -> deque:
         return self._joint_history
     
     @joint_history.setter
     def joint_history(self, history: deque):
-        if isinstance(history, deque) and len(history) <= self._config.joint_history_maxlen:
+        if isinstance(history, deque) and len(history) <= self.config.joint_history_maxlen:
             self._joint_history = history
     
     @property

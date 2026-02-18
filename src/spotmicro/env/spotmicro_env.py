@@ -81,7 +81,7 @@ class SpotmicroEnv(gym.Env):
             - pitch: (of the base)
             - episode_step
 """
-    def __init__(self, agent: Agent, device: Device, config: Config, reward_fn: callable, use_gui=False, reward_state=None, dest_save_file=None, src_save_file=None, writer=None,
+    def __init__(self, device: Device, config: Config, reward_fn: callable, use_gui=False, reward_state=None, dest_save_file=None, src_save_file=None, writer=None,
                  max_episode_len=3000, sim_frequency=240, control_frequency=60, joint_history_max_len=5,
                  min_height=0.15, max_height=0.4, max_pitchroll=0.96, tipping_penalty=-2, jump_fall_penalty=-100, survival_reward=3.0, 
                  spawn_height=0.230, target_body_to_feet_height=0.2
@@ -108,7 +108,6 @@ class SpotmicroEnv(gym.Env):
         super().__init__()
         #Config object contains only attributes, whitch value can be set frome the .yaml file
         self.config = config
-        self._agent = agent
 
         #<----- INITIALIZATIONS ----->
         self.physics_client = None
@@ -159,8 +158,8 @@ class SpotmicroEnv(gym.Env):
 
         #<----- END OF PARAMETER INITIALIZATIONS ----->
 
-        if reward_fn is not callable(reward_fn):
-            raise ValueError("reward_fn must be callable (function)")
+        if not callable(reward_fn):
+            raise ValueError(f"reward_fn must be callable (function), but a {type(reward_fn)} was given")
 
         self._reward_fn = reward_fn
 
@@ -182,9 +181,10 @@ class SpotmicroEnv(gym.Env):
         #Initialize the terrain object
         self._terrain = Terrain(self.physics_client, self.config)
 
-        self._terrain_evo_coefficients = np.array([0.0, 0.0, 0.0]) #TODO: get rid of this when integrating new terrain
+        #TODO: put terrain initialization logic here? subsequent lines are just kept for legacy, might as well be deleted when the integration begins
+        self._terrain_evo_coefficients = np.array([0.0, 0.0, 0.0]) 
         self._terrain.generate(self._terrain_evo_coefficients)
-   
+
         pybullet.changeDynamics(
             bodyUniqueId=self._terrain.terrain_id,
             linkIndex=-1,
@@ -195,6 +195,8 @@ class SpotmicroEnv(gym.Env):
             physicsClientId=self.physics_client
         )
         
+        #Creating the agent (TODO: this being hear breaks the paradigm for configurable classes: need to keep this in mind when designing the next generation)
+        self._agent = Agent(self, device, config, self._ACT_SPACE_SIZE) #TODO: overrides of the parameters of the agent must happen here (for now). Initialization of the agent should be independent of env creation
 
         self._dest_save = dest_save_file
         if self._dest_save is not None:
@@ -245,7 +247,7 @@ class SpotmicroEnv(gym.Env):
         
         self._total_steps_counter = state["total_steps_counter"]
         self._agent.previous_action = state["previous_action"]
-        self._agent.joint_history = deque(state["joint_history"], maxlen=self.joint_history_maxlen)
+        self._agent.joint_history = deque(state["joint_history"], maxlen=self._agent.joint_history_maxlen)
         #self._TARGET_LINEAR_VELOCITY = state["target_linear_velocity"]
         #self._TARGET_ANGULAR_VELOCITY = state["target_angular_velocity"]
 
@@ -493,7 +495,7 @@ class SpotmicroEnv(gym.Env):
         """
         Function that returns wether an episode was terminated artificially or timed out
         """
-        return (self._episode_step_counter >= self._MAX_EPISODE_LEN)
+        return (self._episode_step_counter >= self.max_episode_len)
 
     def _get_info(self) -> dict:
         """
