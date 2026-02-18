@@ -8,10 +8,13 @@ from .data.mock_rw_fn import reward_function, RewardState
 from spotmicro.devices.random_controller import RandomController
 from spotmicro.tools.config import Config
 
+#TODO: add more tests to explore other behaviours. what happens to overrides? pay special attention to thew "matrioska" classes,: Agent and RandomController. How do you override their parameters?
 class TestConfigIntegration(unittest.TestCase):
     def test_config_persistence(self):
         # Load original config
-        cfg_path = "cfgPersistence.yaml" #TODO: fix BUG here. Relative path broken when running tests with vscode extension
+        WORKSPACE_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        TEST_DIR = "tests/integration"
+        cfg_path = os.path.join(WORKSPACE_ROOT, TEST_DIR, "data/cfgPersistence.yaml")
         cfg = Config(cfg_path)
 
         # Initialize environment and device
