@@ -81,7 +81,7 @@ class SpotmicroEnv(gym.Env):
             - pitch: (of the base)
             - episode_step
 """
-    def __init__(self, device: Device, config: Config, reward_fn: callable, use_gui=False, reward_state=None, dest_save_file=None, src_save_file=None, writer=None,
+    def __init__(self, device: Device, config: Config, reward_fn: callable, reward_state, use_gui=False, dest_save_file=None, src_save_file=None, writer=None,
                  max_episode_len=3000, sim_frequency=240, control_frequency=60, joint_history_max_len=5,
                  min_height=0.15, max_height=0.4, max_pitchroll=0.96, tipping_penalty=-2, jump_fall_penalty=-100, survival_reward=3.0, 
                  spawn_height=0.230, target_body_to_feet_height=0.2
@@ -317,7 +317,6 @@ class SpotmicroEnv(gym.Env):
         self.np_random, seed = gym.utils.seeding.np_random(seed)
         return [seed]
 
-    # TODO: BUG fix here. Decouple logic steps from phisical sim steps. WOuld this loop work in a real setting? no, because what reward would you give in between the control steps? it is not feasible to calculate reward at 240Hz. So, step once giving an action and calculating the reward (on which action of the batch?), then step x steps in the sim all for one spotenv.step() call
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
         """
         Method exposed and used bby SB3 to execute one time step within the environment.
@@ -343,7 +342,6 @@ class SpotmicroEnv(gym.Env):
         truncated = self._is_truncated()
         info = self._get_info()
 
-        #actions that are reused in the control loop still receive a reward and are appended to the episode_reward_info ????
         self._episode_reward_info.append(reward_info)
         if truncated:
             reward += self.survival_reward

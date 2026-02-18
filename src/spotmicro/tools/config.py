@@ -1,4 +1,4 @@
-import yaml
+import yaml, os
 
 class RegisterException(Exception):
     """Raised when attempting to register an invalid or duplicate component."""
@@ -43,6 +43,8 @@ class Config:
         
 
     def save(self, dst_filepath: str) -> None:
+        if not os.path.exists(dst_filepath):
+            print("oopds")
         with open(dst_filepath, "w") as f:
             yaml.safe_dump(self.central_registry, f, default_flow_style=False)
 

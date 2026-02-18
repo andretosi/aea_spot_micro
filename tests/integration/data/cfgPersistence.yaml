@@ -1,0 +1,4 @@
+Agent: {}
+RandomController: {}
+SpotmicroEnv:
+  use_gui: True
