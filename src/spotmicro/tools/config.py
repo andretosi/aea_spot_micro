@@ -43,8 +43,6 @@ class Config:
         
 
     def save(self, dst_filepath: str) -> None:
-        if not os.path.exists(dst_filepath):
-            print("oopds")
         with open(dst_filepath, "w") as f:
             yaml.safe_dump(self.central_registry, f, default_flow_style=False)
 
@@ -53,7 +51,6 @@ class Config:
         """
         Add the parameters of an instance of a configurable class to the registry, in its namespace.\n
         Returns a dictionary holding all parameters relating to the given class *set in the config file*, excluding those overridden by the constructor.
-
         
         :param component_type: class of the component
         :param component_instance: specific instance of the component
