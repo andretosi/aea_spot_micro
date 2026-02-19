@@ -68,7 +68,6 @@ class Config:
         else:
             raise RegisterException("An object cannot be registered more than once")
         
-        
         if component_type.__name__ in self.central_registry.keys():
             obj_registry = self.central_registry[component_type.__name__]
         else:
@@ -94,19 +93,17 @@ class Config:
             raise RuntimeError("Tried to update the registry of an object before registering it")
 
         for name, value in params.items():
-            self.central_registry[cls_name][name] = value
+            if self.is_acceptable(value):
+                self.central_registry[cls_name][name] = value
         
-
-
-    
-    def is_acceptable_type(self, value) -> bool:
+    #TODO: expand on this. RN it just discards none values
+    def is_acceptable(self, value) -> bool:
         """
-        returnn True if the provided value is elegible for being saved in config.
+        return True if the provided value is elegible for being saved in config.
         if the value is not a primitive typer, one with a clear, concise str representation or in general it doesn't make sense to dump it in a .yaml, then return False
         
         :param value: config parameter to filter
         """
-        #TODO implement this!!
 
-        return True
+        return (value is not None)
 
