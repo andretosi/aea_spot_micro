@@ -93,8 +93,7 @@ class Config:
             raise RuntimeError("Tried to update the registry of an object before registering it")
 
         for name, value in params.items():
-            if self.is_acceptable(value):
-                self.central_registry[cls_name][name] = value
+            self.central_registry[cls_name][name] = value
         
     #TODO: expand on this. RN it just discards none values
     def is_acceptable(self, value) -> bool:

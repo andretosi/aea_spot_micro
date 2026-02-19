@@ -57,7 +57,7 @@ def configurable(cls):
         #extract params and their runtime value
         overridden_params = {
             name : value for name, value in kwargs.items()
-            if name in default_params and self.config.is_acceptable_type(value)
+            if name in default_params and self.config.is_acceptable(value)
         }
         
         original_init(self, *args, **kwargs) #run the original constructor
