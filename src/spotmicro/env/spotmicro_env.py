@@ -6,29 +6,13 @@ import matplotlib.pyplot as plt
 import inspect, os, pickle, warnings
 import time
 
-from spotmicro.config import Config
+from spotmicro.tools.config import Config
+from spotmicro.tools.configurable import configurable
 from spotmicro.agent.agent import Agent
 from spotmicro.env.terrain import Terrain
 from spotmicro.devices.device import Device
 
-
-"""
-This class inherits the Config class.
-First it creates and inizializes the attributes that show up in the .yaml
-file given in input for the constructor.
-Then it adds additional three attributes shown in the attributes array. 
-"""
-class ConfigEnv(Config):
-    def __init__(self, filename: str):
-        super().__init__(filename)
-        #these attributes are used to configure the terrain
-        attributes = ["c_potholes", "c_ridges", "c_roughness"]
-        for attr in attributes:
-            if not hasattr(self, f"_{attr}"):
-                self.set_property(attr, 0.0)
-        
-
-
+@configurable
 class SpotmicroEnv(gym.Env):
     """
     the SpotMicroEnv class inherits the gym.Env class and overrides his methods in order
@@ -97,7 +81,11 @@ class SpotmicroEnv(gym.Env):
             - pitch: (of the base)
             - episode_step
 """
-    def __init__(self, device: Device, envConfig="configs/envConfig.yaml", agentConfig="configs/agentConfig.yaml", terrainConfig="configs/terrainConfig.yaml", use_gui=False, reward_fn=None, reward_state=None, dest_save_file=None, src_save_file=None, writer=None):
+    def __init__(self, device: Device, config: Config, reward_fn: callable, reward_state, use_gui=False, dest_save_file=None, src_save_file=None, writer=None,
+                 max_episode_len=3000, sim_frequency=240, control_frequency=60, joint_history_max_len=5,
+                 min_height=0.15, max_height=0.4, max_pitchroll=0.96, tipping_penalty=-2, jump_fall_penalty=-100, survival_reward=3.0, 
+                 spawn_height=0.230, target_body_to_feet_height=0.2
+                ):
         """
         Parameters
         ------------
@@ -118,17 +106,10 @@ class SpotmicroEnv(gym.Env):
         - src_save_file : string representing the path of the file from which to load the state of the environment.
         """
         super().__init__()
-
-        if not isinstance(envConfig, str):
-            raise TypeError("config must be a string")
-        if not os.path.isfile(agentConfig):
-            raise FileNotFoundError(f"File {agentConfig} does not exist")
-        if not os.path.isfile(terrainConfig):
-            raise FileNotFoundError(f"File {terrainConfig} does not exist")
-
         #Config object contains only attributes, whitch value can be set frome the .yaml file
-        self.config = ConfigEnv(envConfig)
+        self.config = config
 
+        #<----- INITIALIZATIONS ----->
         self.physics_client = None
         self.use_gui = use_gui
         self.np_random = None
@@ -141,10 +122,10 @@ class SpotmicroEnv(gym.Env):
         self._OBS_SPACE_SIZE = 97
         self._ACT_SPACE_SIZE = 12
         
-        self._MAX_EPISODE_LEN = 3000
-        self._SIM_FREQUENCY = 240
-        self._CONTROL_FREQUENCY = 60
-        self._JOINT_HISTORY_MAX_LEN = 5
+        self.max_episode_len = max_episode_len
+        self.sim_frequency = sim_frequency
+        self.control_frequnecy = control_frequency
+        self.joint_history_max_len = joint_history_max_len
 
         self._episode_step_counter = 0
         self._total_steps_counter = 0
@@ -163,17 +144,22 @@ class SpotmicroEnv(gym.Env):
             dtype = np.float32
         )
 
-        #If the agents is in this state, we terminate the simulation. Should quantize the fact that it has fallen, maybe a threshold?
-        self._target_state = {
-            "min_height": self.config.min_height,
-            "max_height": self.config.max_height,
-            "max_pitchroll": self.config.max_pitchroll
-        }
+        #If the agents is in this state, we terminate the simulation
+        self.min_height = min_height
+        self.max_height = max_height
+        self.max_pitchroll = max_pitchroll
+        
+        #Miscellaneous parameters
+        self.tipping_penalty = tipping_penalty
+        self.jump_fall_penalty = jump_fall_penalty
+        self.survival_reward = survival_reward
+        self.spawn_height = spawn_height
+        self.target_body_to_feet_height = target_body_to_feet_height
 
-        if reward_fn is None:
-            raise ValueError("reward_fn cannot be None. Provide a valid rewad function")
-        elif not callable(reward_fn):
-            raise ValueError("reward_fn must be callable (function)")
+        #<----- END OF PARAMETER INITIALIZATIONS ----->
+
+        if not callable(reward_fn):
+            raise ValueError(f"reward_fn must be callable (function), but a {type(reward_fn)} was given")
 
         self._reward_fn = reward_fn
 
@@ -189,15 +175,16 @@ class SpotmicroEnv(gym.Env):
 
         pybullet.resetSimulation(physicsClientId=self.physics_client)
         pybullet.setGravity(0, 0, -9.81, physicsClientId=self.physics_client)
-        pybullet.setTimeStep(1/self._SIM_FREQUENCY, physicsClientId=self.physics_client)
+        pybullet.setTimeStep(1/self.sim_frequency, physicsClientId=self.physics_client)
         pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
         
         #Initialize the terrain object
-        self._terrain = Terrain(self.physics_client, Config(terrainConfig))
+        self._terrain = Terrain(self.physics_client, self.config)
 
-        self._terrain_evo_coefficients = np.array([self.config.c_potholes, self.config.c_ridges, self.config.c_roughness])
+        #TODO: put terrain initialization logic here? subsequent lines are just kept for legacy, might as well be deleted when the integration begins
+        self._terrain_evo_coefficients = np.array([0.0, 0.0, 0.0]) 
         self._terrain.generate(self._terrain_evo_coefficients)
-   
+
         pybullet.changeDynamics(
             bodyUniqueId=self._terrain.terrain_id,
             linkIndex=-1,
@@ -207,9 +194,9 @@ class SpotmicroEnv(gym.Env):
             restitution=0.0,
             physicsClientId=self.physics_client
         )
-
-        #Initialize the agent object
-        self._agent = Agent(self, device, Config(agentConfig), self._ACT_SPACE_SIZE)
+        
+        #Creating the agent (TODO: this being hear breaks the paradigm for configurable classes: need to keep this in mind when designing the next generation)
+        self._agent = Agent(self, device, config, self._ACT_SPACE_SIZE) #TODO: overrides of the parameters of the agent must happen here (for now). Initialization of the agent should be independent of env creation
 
         self._dest_save = dest_save_file
         if self._dest_save is not None:
@@ -260,7 +247,7 @@ class SpotmicroEnv(gym.Env):
         
         self._total_steps_counter = state["total_steps_counter"]
         self._agent.previous_action = state["previous_action"]
-        self._agent.joint_history = deque(state["joint_history"], maxlen=self._agent.config.joint_history_maxlen)
+        self._agent.joint_history = deque(state["joint_history"], maxlen=self._agent.joint_history_maxlen)
         #self._TARGET_LINEAR_VELOCITY = state["target_linear_velocity"]
         #self._TARGET_ANGULAR_VELOCITY = state["target_angular_velocity"]
 
@@ -293,9 +280,7 @@ class SpotmicroEnv(gym.Env):
 
         # Reset terrain before agent so ground height is consistent
         self._terrain.reset()
-        if self._terrain.config.evolving: 
-            self._terrain.generate(self._schedule_terrain_evo())
-        self._agent.reset(self.config.spawn_height)
+        self._agent.reset(self.spawn_height)
 
         if self.reward_state is not None:
             self.reward_state.populate(self)
@@ -332,7 +317,6 @@ class SpotmicroEnv(gym.Env):
         self.np_random, seed = gym.utils.seeding.np_random(seed)
         return [seed]
 
-    # TODO: BUG fix here. Decouple logic steps from phisical sim steps. WOuld this loop work in a real setting? no, because what reward would you give in between the control steps? it is not feasible to calculate reward at 240Hz. So, step once giving an action and calculating the reward (on which action of the batch?), then step x steps in the sim all for one spotenv.step() call
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
         """
         Method exposed and used bby SB3 to execute one time step within the environment.
@@ -358,10 +342,9 @@ class SpotmicroEnv(gym.Env):
         truncated = self._is_truncated()
         info = self._get_info()
 
-        #actions that are reused in the control loop still receive a reward and are appended to the episode_reward_info ????
         self._episode_reward_info.append(reward_info)
         if truncated:
-            reward += self.config.survival_reward
+            reward += self.survival_reward
         if terminated:
             reward += term_penalty
 
@@ -414,11 +397,12 @@ class SpotmicroEnv(gym.Env):
         """
         # Execute the action in pybullet
         self._agent.apply_action(action)
-                
-        if self._terrain.config.mode == "tilting":
-            self._terrain.tilt_plane()
+
+        #TODO: deprecated      
+        #if self._terrain.config.mode == "tilting":
+        #    self._terrain.tilt_plane()
         
-        for _ in range(self._SIM_FREQUENCY // self._CONTROL_FREQUENCY):
+        for _ in range(self.sim_frequency // self.control_frequnecy):
             pybullet.stepSimulation()
             if self.use_gui:
                 time.sleep(1/70.) # MAGIC NUMBER, MAKES THE SIMULATION LOOK REAL-TIME (not slow, not too fast)
@@ -453,7 +437,7 @@ class SpotmicroEnv(gym.Env):
         return pos_norm
     
     def _joint_velocities_norm(self, vels): #PARAMETER (normalization)
-        vel_norm = [np.tanh(vel / self._agent.config.max_joint_velocity) for vel in vels] # Normalize velocity with resect to a hypotetical max velocity (10 rad/s)
+        vel_norm = [np.tanh(vel / self._agent.max_joint_velocity) for vel in vels] # Normalize velocity with resect to a hypotetical max velocity (10 rad/s)
         return vel_norm
 
     def _get_observation(self) -> np.ndarray:
@@ -473,9 +457,9 @@ class SpotmicroEnv(gym.Env):
         #NORMALIZATION PARAMETERS
         obs = []
         obs.extend(self._get_gravity_vector())
-        obs.append((self._agent.state.base_position[2] - self.config.target_body_to_feet_height) / self._agent.config.max_norm_height) # Normalized w respect a hypotetical max height
-        obs.extend(self._agent.state.linear_velocity / self._agent.config.max_linear_velocity) # Normalized w respect to a hypotetical max velocity
-        obs.extend(self._agent.state.angular_velocity / self._agent.config.max_angular_velocity) # Normalized w respect to a hypotetical max ang velocity
+        obs.append((self._agent.state.base_position[2] - self.target_body_to_feet_height) / self._agent.max_norm_height) # Normalized w respect a hypotetical max height
+        obs.extend(self._agent.state.linear_velocity / self._agent.max_linear_velocity) # Normalized w respect to a hypotetical max velocity
+        obs.extend(self._agent.state.angular_velocity / self._agent.max_angular_velocity) # Normalized w respect to a hypotetical max ang velocity
         obs.extend(self._joint_positions_norm(self._agent.state.joint_positions)) 
         obs.extend(self._joint_velocities_norm(self._agent.state.joint_velocities))
         obs.extend(self._joint_positions_norm(self._agent.joint_history[1][0]))
@@ -498,10 +482,10 @@ class SpotmicroEnv(gym.Env):
         roll, pitch, _ = self._agent.state.roll_pitch_yaw
         height = base_pos[2]
 
-        if height <= self._target_state["min_height"] or height > self._target_state["max_height"]:
-            return (True, self.config.jump_fall_penalty) 
-        elif abs(roll) > self._target_state["max_pitchroll"] or abs(pitch) > self._target_state["max_pitchroll"]:
-            return (True, self.config.tipping_penalty)
+        if height <= self.min_height or height > self.max_height:
+            return (True, self.jump_fall_penalty) 
+        elif abs(roll) > self.max_pitchroll or abs(pitch) > self.max_pitchroll:
+            return (True, self.tipping_penalty)
         else:
             return (False, 0)
     
@@ -509,7 +493,7 @@ class SpotmicroEnv(gym.Env):
         """
         Function that returns wether an episode was terminated artificially or timed out
         """
-        return (self._episode_step_counter >= self._MAX_EPISODE_LEN)
+        return (self._episode_step_counter >= self.max_episode_len)
 
     def _get_info(self) -> dict:
         """
@@ -531,11 +515,7 @@ class SpotmicroEnv(gym.Env):
         return self._reward_fn(self, action)
 
     def _schedule_terrain_evo(self) -> np.ndarray:
-        if self.config.evolution_mode == "constant":
-            return self._terrain_evo_coefficients
-        elif self.config.evolution_mode == "linear":
-            linear_alpha = self._total_steps_counter / 1_000_000 # TOTALLY UNSTABLE TODO NEED TO NORMALIZE
-            return self._terrain_evo_coefficients * (1 - linear_alpha) + np.array([linear_alpha for coeff in self._terrain_evo_coefficients])
+        return np.array([0.0, 0.0, 0.0]) #TODO <- this will be deprecated by terraintools
 
     
     @property
@@ -554,9 +534,9 @@ class SpotmicroEnv(gym.Env):
         return self._total_steps_counter
 
     @property
-    def sim_frequency(self) -> int:
-        return self._SIM_FREQUENCY
+    def simulation_frequency(self) -> int:
+        return self.sim_frequency
     
     @property
-    def max_episode_len(self) ->int:
-        return self._MAX_EPISODE_LEN
+    def maximum_episode_len(self) ->int:
+        return self.max_episode_len

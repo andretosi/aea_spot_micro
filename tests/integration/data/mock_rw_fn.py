@@ -1,3 +1,10 @@
+"""
+This function here is more complex than it should for the purpose it serves here (just basic testng).
+This is because it was copy-pasted from an already developed reward function.
+In any case, this way we test a wide array of attributes (thiugh there's no guarantee we are testing every single one)
+"""
+
+
 import pybullet
 import numpy as np
 # Importa la classe SpotmicroEnv, che definisce l'ambiente di simulazione del robot.

@@ -2,7 +2,7 @@ import numpy as np
 import pybullet
 from scipy.ndimage import gaussian_filter
 
-from spotmicro.config import Config
+from spotmicro.tools.config import Config
 
 class Terrain:
     def __init__(self, physics_client, config: Config):
@@ -12,25 +12,11 @@ class Terrain:
         self._tilt_step = 0
 
     def generate(self, coefficients: tuple[float, float, float] = (0.0, 0.0, 0.0)) -> None:    
-        if self._config.mode == "flat":
-            self._terrain_id = pybullet.loadURDF(
-                "plane.urdf",
-                physicsClientId=self.physics_client
-            )
 
-        elif self._config.mode == "tilting":
-            self._terrain_id = pybullet.loadURDF(
-                "plane.urdf",
-                physicsClientId=self.physics_client
-            )
-            self._tilt_step = 0
-
-        elif self._config.mode == "irregular":
-            self._terrain_id = self._create_terrain(coefficients)
-
-        else:
-            raise ValueError(f"Unknown terrain mode: {self._config.mode}")
-
+        self._terrain_id = pybullet.loadURDF(
+            "plane.urdf",
+            physicsClientId=self.physics_client
+        )
         self._generated = 1
         return self._terrain_id
 
