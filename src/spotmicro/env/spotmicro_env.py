@@ -11,6 +11,7 @@ from spotmicro.tools.configurable import configurable
 from spotmicro.agent.agent import Agent
 from spotmicro.env.terrain import Terrain
 from spotmicro.devices.device import Device
+from spotmicro.tools.tracker import Tracker
 
 @configurable
 class SpotmicroEnv(gym.Env):
@@ -81,7 +82,7 @@ class SpotmicroEnv(gym.Env):
             - pitch: (of the base)
             - episode_step
 """
-    def __init__(self, device: Device, config: Config, reward_fn: callable, reward_state, use_gui=False, dest_save_file=None, src_save_file=None, writer=None,
+    def __init__(self, device: Device, config: Config, reward_fn: callable, reward_state, use_gui=False, tracker_on=False, dest_save_file=None, src_save_file=None, writer=None,
                  max_episode_len=3000, sim_frequency=240, control_frequency=60, joint_history_max_len=5,
                  min_height=0.15, max_height=0.4, max_pitchroll=0.96, tipping_penalty=-2, jump_fall_penalty=-100, survival_reward=3.0, 
                  spawn_height=0.230, target_body_to_feet_height=0.2
@@ -112,6 +113,7 @@ class SpotmicroEnv(gym.Env):
         #<----- INITIALIZATIONS ----->
         self.physics_client = None
         self.use_gui = use_gui
+        self.tracker_on = tracker_on
         self.np_random = None
         self.reward_state = reward_state
         self._episode_reward_info = None #history of the rewards during an episode, used to plot results
@@ -197,6 +199,9 @@ class SpotmicroEnv(gym.Env):
         
         #Creating the agent (TODO: this being hear breaks the paradigm for configurable classes: need to keep this in mind when designing the next generation)
         self._agent = Agent(self, device, config, self._ACT_SPACE_SIZE) #TODO: overrides of the parameters of the agent must happen here (for now). Initialization of the agent should be independent of env creation
+
+        if tracker_on:
+            self._tracker = Tracker()
 
         self._dest_save = dest_save_file
         if self._dest_save is not None:
@@ -309,6 +314,10 @@ class SpotmicroEnv(gym.Env):
                 raise ValueError("reward_fn must return a dict as second return value")
         except Exception as e:
             raise ValueError(f"Error testing reward_fn: {str(e)}")
+        
+        if self.tracker_on:
+            self._tracker.reset()
+
 
         return self._get_observation(), self._get_info()
     
@@ -397,6 +406,7 @@ class SpotmicroEnv(gym.Env):
         """
         # Execute the action in pybullet
         self._agent.apply_action(action)
+        self._tracker.apply_command(self._agent.controller.input)
 
         #TODO: deprecated      
         #if self._terrain.config.mode == "tilting":
