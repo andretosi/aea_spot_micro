@@ -189,7 +189,6 @@ class Agent:
         self._previous_action = np.zeros(self._action_space_size, dtype=np.float32)
         self._joint_history = deque(maxlen=self.joint_history_maxlen) # It will hold tuples with np.ndarray of joint_positions and joint_velocities
 
-        print(f"DEBUG: {self._env.physics_client}")
         urdf_path = str(files("spotmicro.data").joinpath("spotmicroai.urdf"))
         # --- Load URDF ---
         self._robot_id = pybullet.loadURDF(

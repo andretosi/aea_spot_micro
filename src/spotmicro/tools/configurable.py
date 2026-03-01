@@ -7,7 +7,9 @@ def configurable(cls):
     """
     Decorator function that extends the behaviour of the decorated class by wrapping its init and adding a config attribute.
     It injects the logic to extract kwargs from the class constructor and their defaults in the init, to then pass them to the central registry to hold.
-    This class treats all kwargs parameters as config parameters, besides those whose default value is None or which are not trivially serializable
+    This class treats all kwargs parameters as config parameters, besides those whose default value is None or which are not trivially serializable.
+
+    WARNING: it is not currently possible to subscribe 2 configurable object of the same class to the same config object. 
     
     :param cls: This class is any object that can be configured, and as such should be linked to the central registry
     """
@@ -55,12 +57,11 @@ def configurable(cls):
         #extract params and their runtime value
         overridden_params = {
             name : value for name, value in kwargs.items()
-            if name in default_params and self.config.is_acceptable_type(value)
+            if name in default_params and self.config.is_acceptable(value)
         }
         
         original_init(self, *args, **kwargs) #run the original constructor
 
-        #Can i trust this line? register works (guaranteed by tests (?)) so the culprit of test 8 must be overridden_params?
         config_parameters = self.config.register(cls, self, overridden_params) #register the initialized instance to config
         for c_param in config_parameters.keys():
             if c_param not in default_params.keys():
@@ -73,7 +74,6 @@ def configurable(cls):
     #<----- END WRAPPER ----->
 
     #<----- SAVE LOGIC ------>
-    #TODO
     def save(self, path : str):
         """
         Save the parameters of **this** configurable objects to the given file
