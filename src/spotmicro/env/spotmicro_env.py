@@ -165,6 +165,7 @@ class SpotmicroEnv(gym.Env):
 
         self._reward_fn = reward_fn
 
+        # <-- PHYSICS_ENV: init? -->
         #Initialize pybullet: connects to the simulation server and sets the initial view
         if self.physics_client is None:
             self.physics_client = pybullet.connect(pybullet.GUI if self.use_gui else pybullet.DIRECT)
@@ -179,6 +180,7 @@ class SpotmicroEnv(gym.Env):
         pybullet.setGravity(0, 0, -9.81, physicsClientId=self.physics_client)
         pybullet.setTimeStep(1/self.sim_frequency, physicsClientId=self.physics_client)
         pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
+        # <-- -->
         
         #Initialize the terrain object
         self._terrain = Terrain(self.physics_client, self.config)
@@ -187,6 +189,7 @@ class SpotmicroEnv(gym.Env):
         self._terrain_evo_coefficients = np.array([0.0, 0.0, 0.0]) 
         self._terrain.generate(self._terrain_evo_coefficients)
 
+        # <-- PHYSICS_ENV: attach terrain? -->
         pybullet.changeDynamics(
             bodyUniqueId=self._terrain.terrain_id,
             linkIndex=-1,
@@ -196,6 +199,7 @@ class SpotmicroEnv(gym.Env):
             restitution=0.0,
             physicsClientId=self.physics_client
         )
+        # <-- -->
         
         #Creating the agent (TODO: this being hear breaks the paradigm for configurable classes: need to keep this in mind when designing the next generation)
         self._agent = Agent(self, device, config, self._ACT_SPACE_SIZE) #TODO: overrides of the parameters of the agent must happen here (for now). Initialization of the agent should be independent of env creation
@@ -261,9 +265,12 @@ class SpotmicroEnv(gym.Env):
         Method exposed and used by SB3.
         Cleans up the simulation, saves the state if a destination path is provided
         """
+
+        # <-- PHYSICS_ENV just close --> 
         if self.physics_client is not None:
             pybullet.disconnect(self.physics_client)
             self.physics_client = None
+        # <-- -->
 
         if self._dest_save is not None:
             self.save_state() 
@@ -296,7 +303,11 @@ class SpotmicroEnv(gym.Env):
         # Let physics settle with homing applied
         for _ in range(5):
             self._agent.apply_action(self._agent.default_actions) # Zeros because they map to homing positions
+
+            # <-- PHYSICS ENV: step simulation? -->
             pybullet.stepSimulation(physicsClientId=self.physics_client)
+            # <-- -->
+            
             self._agent.sync_state()
 
         # Sanity check reward function signature
