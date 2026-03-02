@@ -227,7 +227,6 @@ class Terrain:
 
         Args:
             physics_client (int): The PyBullet physics client ID.
-
         Returns:
             int: The body ID of the spawned terrain.
         """
