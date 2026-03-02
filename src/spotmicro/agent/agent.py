@@ -32,7 +32,9 @@ class AgentState:
 
     @property
     def roll_pitch_yaw(self):
+        #<-- PHYSICS_ENV: tooling -->
         return pybullet.getEulerFromQuaternion(self.base_orientation)
+        #<-- -->
 
 class Joint:
     """
@@ -183,12 +185,13 @@ class Agent:
         # <----- State ----->
         self._state = AgentState(
             base_position=np.array([0.0, 0.0, self._env.spawn_height]), #TODO: spawn_height must be deduced, it cannot be (only) a manual parameter
-            base_orientation=pybullet.getQuaternionFromEuler([0, self.homing_pitch, np.pi]),
+            base_orientation=pybullet.getQuaternionFromEuler([0, self.homing_pitch, np.pi]), # <-- PHYSICS_ENV: utility -->
         )
         self._action = np.zeros(self._action_space_size, dtype=np.float32)
         self._previous_action = np.zeros(self._action_space_size, dtype=np.float32)
         self._joint_history = deque(maxlen=self.joint_history_maxlen) # It will hold tuples with np.ndarray of joint_positions and joint_velocities
 
+        # <-- PHYSICS_ENV how to load the model of an agent in the sim? need a dedicated method?-->
         urdf_path = str(files("spotmicro.data").joinpath("spotmicroai.urdf"))
         # --- Load URDF ---
         self._robot_id = pybullet.loadURDF(
@@ -197,6 +200,7 @@ class Agent:
             baseOrientation=self._state.base_orientation,
             physicsClientId=self._env.physics_client,
         )
+        #<-- -->
 
         # --- Joints ---
         motor_joints = []
@@ -209,6 +213,7 @@ class Agent:
         # homing_positions = [x1 : int, ....] is filled with the homing positions of each Joint. These
         # are the positions used to reset the position of each joint.
 
+        # <-- PHYSICS_ENV: need a way to query for information. here it's mostly joint info, to create it
         for i in range(pybullet.getNumJoints(self._robot_id)):
             joint_info = pybullet.getJointInfo(self._robot_id, i)
             joint_link_id = joint_info[0]
@@ -235,6 +240,7 @@ class Agent:
         
         self.default_actions = np.array([j.from_position_to_action(j.homing_position) for j in self.motor_joints])
 
+        #<-- -->
 
     def reset(self, spawn_heigt: float):
         """
@@ -243,7 +249,7 @@ class Agent:
 
         self._state = AgentState(
             base_position=np.array([0.0, 0.0, spawn_heigt]),
-            base_orientation=pybullet.getQuaternionFromEuler([0, self.homing_pitch, np.pi]),
+            base_orientation=pybullet.getQuaternionFromEuler([0, self.homing_pitch, np.pi]), #<--PHYSICS_ENV: utils -->
             #linear_velocity=np.array([0.0, 0.0, 0.0])
             #angular_velocity=np.array([0.0, 0.0, 0.0])
         )#
@@ -252,6 +258,7 @@ class Agent:
         for _ in range(5):
             self._joint_history.append(dummy_joint_state)
 
+        #<-- PHYSICS_ENV: reset everything -->
         pybullet.resetBasePositionAndOrientation(
             self._robot_id,
             self._state.base_position,
@@ -275,6 +282,7 @@ class Agent:
                 targetVelocity=0.0,
                 physicsClientId=self._env.physics_client,
             )
+        #<-- -->
 
         # Reset actions to "homing" which is 0
         self._action = np.zeros(len(self._motor_joints), dtype=np.float32)
@@ -299,7 +307,9 @@ class Agent:
         # The max_torque of the joints is defined in the agentConfig file.
 
         # setJointMotorControl2 doesn't actually "move" the robot in the simulation,
-        # but tells the motor what to do once stepSimulation() will be called.
+        # but tells the motor what to do once stepSimulation() is called.
+
+        #<-- PHYSICS_ENV: VERY DELICATE! apply_action(action) that specializes for each env? 
         for i, joint in enumerate(self._motor_joints):
             pybullet.setJointMotorControl2(
                 bodyUniqueId = self._robot_id,
@@ -308,6 +318,7 @@ class Agent:
                 targetPosition = joint.from_action_to_position(action[i]),
                 force = joint.max_torque
             )
+        #<-- -->
 
         return
 
@@ -320,11 +331,14 @@ class Agent:
         This method saves which feet are touching the ground (part of the state vector)
         returns a set of link indices of the feet in contact with the ground
         """
+
+        #<--PHYSICS_ENV: no idea on wether this can be done in mujoco or not -->
         contact_points = pybullet.getContactPoints(
             bodyA=self._robot_id,
             bodyB=self._env.terrain._terrain_id,
             physicsClientId=self._env.physics_client
         )
+        #<-- -->
 
         feet_in_contact = set()
 
@@ -340,13 +354,15 @@ class Agent:
         """Query pybullet and update AgentState with velocities in robot-space coodinates"""
 
         # Get base position, orientation (world frame)
-        pos, ori = pybullet.getBasePositionAndOrientation(self._robot_id)
+        pos, ori = pybullet.getBasePositionAndOrientation(self._robot_id) #PHYSICS_ENV: utils
 
+        #<-- PHISYCS_ENV: get_base_info? more general than needed here prolly -->
         # Get base linear and angular velocity (world frame)
         lin_vel_world, ang_vel_world = pybullet.getBaseVelocity(self._robot_id)
+        #<-- -->
 
         # Compute rotation matrix world -> body (robot) frame
-        rot_matrix = np.array(pybullet.getMatrixFromQuaternion(ori)).reshape(3, 3)
+        rot_matrix = np.array(pybullet.getMatrixFromQuaternion(ori)).reshape(3, 3) #PHYSICS_ENV: utils
         world_to_body = rot_matrix.T  # Transpose to go from world to body frame
 
         # Transform velocities to robot frame
@@ -357,7 +373,7 @@ class Agent:
         joint_positions = []
         joint_velocities = []
         for joint in self._motor_joints:
-            state = pybullet.getJointState(self._robot_id, joint.id)
+            state = pybullet.getJointState(self._robot_id, joint.id) #PHYSICS_ENV: get_joint_info
             joint_positions.append(state[0])
             joint_velocities.append(state[1])
             joint.effort = state[3]
@@ -440,11 +456,13 @@ class Agent:
         feet_positions = []
         for joint in self._motor_joints:
             if joint.type == "foot":
-                link_state = pybullet.getLinkState(
+                #<-- PHYSICS_ENV: may aggregate this in get_joint_info ? TODO: double check with andrea-->
+                link_state = pybullet.getLinkState( 
                     self._robot_id,
                     joint.link_id,
                     physicsClientId=self._env.physics_client
                 )
+                # <-- -->
                 # link_state[0] è la worldLinkFramePosition
                 feet_positions.append(link_state[0])
         
@@ -482,11 +500,11 @@ class Agent:
         v_feet_to_body = p_body - p_feet_avg
 
         # 3. Trovare la direzione "su" del robot, u_body
-        _, orientation_quat = pybullet.getBasePositionAndOrientation(
+        _, orientation_quat = pybullet.getBasePositionAndOrientation( #PHYSICS_ENV: get_base_info?
             self._robot_id, 
             physicsClientId=self._env.physics_client
         )
-        rot_matrix = np.array(pybullet.getMatrixFromQuaternion(orientation_quat)).reshape(3, 3)
+        rot_matrix = np.array(pybullet.getMatrixFromQuaternion(orientation_quat)).reshape(3, 3) # PHYSICS_ENV: utils
         u_body = rot_matrix[:, 2]  # Versore z locale espresso rispetto alle coordinate globali
 
         # 4. Proiezione scalare (prodotto scalare)
