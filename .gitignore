@@ -12,4 +12,5 @@ policy_training/logs
 *.txt
 dockerfile
 logs
-cheatsheet.md
+.egg-info
+.python-version
