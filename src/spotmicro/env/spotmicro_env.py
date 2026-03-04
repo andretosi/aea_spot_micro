@@ -11,6 +11,8 @@ from spotmicro.tools.configurable import configurable
 from spotmicro.agent.agent import Agent
 from spotmicro.env.terrain import Terrain
 from spotmicro.devices.device import Device
+from spotmicro.tools.kinematic_ghost import KinematicGhost
+from spotmicro.tools.kg_renderer import KG_Renderer, PyBulletRenderer
 
 @configurable
 class SpotmicroEnv(gym.Env):
@@ -156,6 +158,9 @@ class SpotmicroEnv(gym.Env):
         self.spawn_height = spawn_height
         self.target_body_to_feet_height = target_body_to_feet_height
 
+        # Tempo fisico della simulazione
+        self.dt = 1.0 / self.sim_frequency
+
         #<----- END OF PARAMETER INITIALIZATIONS ----->
 
         if not callable(reward_fn):
@@ -170,8 +175,16 @@ class SpotmicroEnv(gym.Env):
                 cameraDistance=1.2,   # zoom out a bit
                 cameraYaw=45,         # rotate around robot
                 cameraPitch=-30,      # look slightly down
-                cameraTargetPosition=[0, 0, 0.2]  # center around robot base
+                cameraTargetPosition=[0, 0, 0.2],  # center around robot base
+                physicsClientId=self.physics_client
             )
+
+
+        # Renderer specifico (PyBullet o MuJoCo)
+        renderer = PyBulletRenderer(client_id=self.physics_client) 
+
+        # Ghost
+        self.ghost = KinematicGhost(renderer, self.dt)
 
         pybullet.resetSimulation(physicsClientId=self.physics_client)
         pybullet.setGravity(0, 0, -9.81, physicsClientId=self.physics_client)
@@ -309,6 +322,8 @@ class SpotmicroEnv(gym.Env):
                 raise ValueError("reward_fn must return a dict as second return value")
         except Exception as e:
             raise ValueError(f"Error testing reward_fn: {str(e)}")
+        
+        self.ghost.reset(start_pos=self._agent.state.base_position, start_quat=self._agent.state.base_orientation)
 
         return self._get_observation(), self._get_info()
     
@@ -404,6 +419,9 @@ class SpotmicroEnv(gym.Env):
         
         for _ in range(self.sim_frequency // self.control_frequnecy):
             pybullet.stepSimulation()
+
+            self.ghost.apply_command(self._agent.controller.input)
+
             if self.use_gui:
                 time.sleep(1/70.) # MAGIC NUMBER, MAKES THE SIMULATION LOOK REAL-TIME (not slow, not too fast)
 
