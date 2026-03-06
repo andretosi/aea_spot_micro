@@ -60,7 +60,7 @@ class PyBulletRenderer(KG_Renderer):
             [1, 0, 0],
             3,
             #replaceItemUniqueId=self.line_id,
-            lifeTime=0.3,
+            lifeTime=1/50.,
             physicsClientId=self.client_id
         ) 
 

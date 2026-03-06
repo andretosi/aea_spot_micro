@@ -43,8 +43,8 @@ class KinematicGhost():
         self.yaw = (self.yaw + np.pi) % (2 * np.pi) - np.pi
 
         # trasforma velocità nel frame globale
-        dx = (vx * np.cos(self.yaw) - vy * np.sin(self.yaw)) * dt
-        dy = (vx * np.sin(self.yaw) + vy * np.cos(self.yaw)) * dt
+        dx = (- vx * np.cos(self.yaw) + vy * np.sin(self.yaw)) * dt
+        dy = (- vx * np.sin(self.yaw) - vy * np.cos(self.yaw)) * dt
 
         # aggiorna posizione
         self.position[0] += dx
