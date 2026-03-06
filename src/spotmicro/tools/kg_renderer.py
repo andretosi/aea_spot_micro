@@ -51,16 +51,13 @@ class PyBulletRenderer(KG_Renderer):
 
         end = draw_pos + 0.3 * direction
 
-        if self.line_id is not None:
-            p.removeUserDebugItem(self.line_id, physicsClientId=self.client_id)
-
         self.line_id = p.addUserDebugLine(
             draw_pos,
             end,
             [1, 0, 0],
             3,
-            #replaceItemUniqueId=self.line_id,
-            lifeTime=1/50.,
+            replaceItemUniqueId=self.line_id,
+            lifeTime=1,
             physicsClientId=self.client_id
         ) 
 
