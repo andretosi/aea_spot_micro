@@ -14,7 +14,7 @@ from spotmicro.tools.config import Config
 cfg = Config("configs/test_config.yaml")
 #dev = RandomController(cfg)
 dev = FixedController(mode="walk")
-env = SpotmicroEnv(dev, cfg, reward_function, RewardState(), use_gui=True, )
+env = SpotmicroEnv(dev, cfg, reward_function, RewardState(), use_gui=True, ghost_on=True)
 obs, _ = env.reset()
 
 cfg.save("configs/test_config2.yaml")
