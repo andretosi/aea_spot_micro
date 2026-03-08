@@ -15,8 +15,10 @@ grandparent_dir = os.path.abspath(os.path.join(cwd, "..", ".."))
 if grandparent_dir not in sys.path:
     sys.path.insert(0, grandparent_dir)
 
-from SpotmicroEnv import SpotmicroEnv
 from reward_function import reward_function, RewardState
+from spotmicro.env.spotmicro_env import SpotmicroEnv
+from spotmicro.devices.fixed_controller import FixedController
+from spotmicro.tools.config import Config
 
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 from stable_baselines3.common.callbacks import CheckpointCallback
@@ -25,7 +27,7 @@ from stable_baselines3.common.logger import configure
 
 # ========= CONFIG ==========
 TOTAL_STEPS = 2_000_000
-run = "stand"
+run = "NewStand"
 log_dir = f"./logs/{run}"
 
 def clipped_linear_schedule(initial_value, min_value=1e-5):
@@ -40,11 +42,14 @@ checkpoint_callback = CheckpointCallback(
 )
 
 # ========= ENV ==========
+cfg = Config()
+dev = FixedController("still")
 env = SpotmicroEnv(
+    dev,
+    cfg,
+    reward_function,
+    RewardState(), 
     use_gui=False,
-    reward_fn=reward_function, 
-    reward_state=RewardState(), 
-    dest_save_file=f"{run}.pkl"
 )
 check_env(env, warn=True)
 

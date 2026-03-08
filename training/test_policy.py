@@ -8,6 +8,8 @@ from reward_functions.walking_reward_function import reward_function, RewardStat
 #from spotmicro.devices.random_controller import RandomController
 from spotmicro.devices.keyboard_device import Keyboard
 
+from spotmicro.tools.config import Config
+
 run = "prova2"
 DATA_DIR =  Path("data") / f"{run}_results"
 DATA_DIR.mkdir(parents=True, exist_ok=True)  # ensure directory exists
@@ -15,8 +17,11 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)  # ensure directory exists
 #dev = RandomController()
 dev = Keyboard()    #ora usa la tastiera
 
+conf = Config("configs/test_config.yaml")
+
 env = SpotmicroEnv(
     dev,
+    conf,
     use_gui=True, 
     reward_fn=reward_function,
     reward_state=RewardState(),
