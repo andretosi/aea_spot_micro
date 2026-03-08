@@ -42,7 +42,6 @@ class Keyboard(Device):
         self.is_stopped = True # Per gestire le stampe di debug
 
     def update(self):
-        """Attiva la modalità RAW del terminale."""
         if not self._enabled:
             self._orig_settings = termios.tcgetattr(sys.stdin)
             tty.setcbreak(sys.stdin.fileno())
@@ -56,8 +55,8 @@ class Keyboard(Device):
         now = time.time()
         
         # 1. LEGGI TUTTI I CARATTERI NEL BUFFER
-        # Invece di leggerne uno solo, leggiamo tutto quello che c'è
-        # così catturiamo combinazioni rapide.
+        # Invece di leggerne uno solo, leggo tutto quello che c'è
+        # catturo combinazioni rapide.
         while True:
             dr, _, _ = select.select([sys.stdin], [], [], 0)
             if not dr:
