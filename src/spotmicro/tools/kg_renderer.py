@@ -49,7 +49,7 @@ class PyBulletRenderer(KG_Renderer):
         draw_pos = position.copy()
         draw_pos[2] = 0.5  # altezza fissa sopra il terreno
 
-        end = draw_pos + 0.3 * direction
+        end = draw_pos - 0.3 * direction
 
         self.line_id = p.addUserDebugLine(
             draw_pos,

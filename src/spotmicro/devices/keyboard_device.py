@@ -23,8 +23,8 @@ class Keyboard(Device):
         self._orig_settings = None
         
         # --- PARAMETRI ---
-        self.VAL_SPEED = 0.5
-        self.VAL_TURN = 0.5
+        self.VAL_SPEED = 1
+        self.VAL_TURN = 1
         # Quanto tempo (in secondi) un tasto resta 'attivo' dopo essere stato premuto.
         self.KEY_TIMEOUT = 0.3 
 
@@ -71,16 +71,16 @@ class Keyboard(Device):
             elif char == 's': 
                 self.current_x = -self.VAL_SPEED
                 self.last_time_x = now
-            elif char == 'a': 
+            elif char == 'q': 
                 self.current_w = self.VAL_TURN
                 self.last_time_w = now
-            elif char == 'd': 
+            elif char == 'e': 
                 self.current_w = -self.VAL_TURN
                 self.last_time_w = now
-            elif char == 'q': 
+            elif char == 'a': 
                 self.current_y = self.VAL_SPEED
                 self.last_time_y = now
-            elif char == 'e': 
+            elif char == 'd': 
                 self.current_y = -self.VAL_SPEED
                 self.last_time_y = now
 
@@ -109,8 +109,17 @@ class Keyboard(Device):
 
         return Input(self.current_x, self.current_y, self.current_w)
 
-    def close(self):
-        pass
+    def reset(self):
+        self.last_time_x = 0.0
+        self.last_time_y = 0.0
+        self.last_time_w = 0.0
+        
+        # Valori attuali da inviare
+        self.current_x = 0.0
+        self.current_y = 0.0
+        self.current_w = 0.0
+        
+        self.is_stopped = True # Per gestire le stampe di debug
 
     def __del__(self):
         if self._enabled and self._orig_settings:
