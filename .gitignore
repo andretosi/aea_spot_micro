@@ -13,3 +13,4 @@ policy_training/logs
 dockerfile
 logs
 .egg-info
+.python-version

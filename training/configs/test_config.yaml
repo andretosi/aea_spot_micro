@@ -1,0 +1,5 @@
+Agent:
+  homing_pitch: 1.1
+RandomController: {}
+SpotmicroEnv:
+  use_gui: True

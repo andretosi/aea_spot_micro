@@ -4,7 +4,8 @@ from dataclasses import dataclass, field
 from collections import deque
 from importlib.resources import files
 
-from spotmicro.config import Config
+from spotmicro.tools.config import Config
+from spotmicro.tools.configurable import configurable
 from spotmicro.devices.device import Device
 from spotmicro.agent.controller import Controller
 
@@ -37,7 +38,10 @@ class Joint:
     """
     All data used to define a Joint
     """
-    def __init__(self, name: str, joint_id: int, joint_link_idx: int, joint_type: str, limits: tuple, config: Config):
+    def __init__(self, name: str, joint_id: int, joint_link_idx: int, joint_type: str, limits: tuple,
+                 max_torque, shoulder_deadzone, leg_deadzone, foot_deadzone, 
+                 left_shoulder_hp, right_shoulder_hp, front_legs_hp, rear_legs_hp, front_feet_hp, rear_feet_hp    
+            ):
         """
         Parameters
         ----------
@@ -65,27 +69,21 @@ class Joint:
         self.mid = 0.5 * (self.limits[0] + self.limits[1])
         self.type = joint_type  # shoulder, leg, foot
         self.effort = 0
-        self.max_torque = config.max_torque
+        self.max_torque = max_torque
 
         # --- Type-dependent homing & gains ---
         if self.type == "shoulder":
-            self.homing_position = config.left_shoulder_hp if self.leftright == "left" else config.right_shoulder_hp
-            self.gain = config.shoulder_gain
-            self.deadzone = config.shoulder_deadzone
-            self.power = config.shoulder_power
+            self.homing_position = left_shoulder_hp if self.leftright == "left" else right_shoulder_hp
+            self.deadzone = shoulder_deadzone
 
         elif self.type == "leg":
-            self.homing_position = config.front_legs_hp if self.frontback == "front" else config.rear_legs_hp
-            self.gain = config.leg_gain
-            self.deadzone = config.leg_deadzone
-            self.power = config.leg_power
+            self.homing_position = front_legs_hp if self.frontback == "front" else rear_legs_hp
+            self.deadzone = leg_deadzone
 
         elif self.type == "foot":
-            self.homing_position = config.front_feet_hp if self.frontback == "front" else config.rear_feet_hp
-            self.gain = config.foot_gain
-            self.deadzone = config.foot_deadzone
-            self.power = config.foot_power
-    # the neural network outputs a NORALIZED vector with the action that the robot should perform.
+            self.homing_position = front_feet_hp if self.frontback == "front" else rear_feet_hp
+            self.deadzone = foot_deadzone
+    # the neural network outputs a NORMALIZED vector with the action that the robot should perform.
     # This function converts the vector into a joint position, used by pybullet to move the robot.
     def from_position_to_action(self, pos: float) -> float:
         high, low = self.limits
@@ -107,6 +105,7 @@ class Joint:
             return lin_map(a, 1, high, norm_hp+self.deadzone, self.homing_position)
 
 
+@configurable
 class Agent:
     """
     This class represents the Robot in the simulation. The data is taken from the pybullet simulation.
@@ -159,20 +158,36 @@ class Agent:
 
 
     """
-    def __init__(self, env, device: Device, config: Config, action_space_size: int):
-        self._config = config
+    def __init__(self, env, device: Device, config: Config, action_space_size: int,
+                 joint_max_torque=6.5, left_shoulder_hp=-0.0502, right_shoulder_hp=0.0502, front_legs_hp=-0.55, rear_legs_hp=-0.5, front_feet_hp=1.1, rear_feet_hp=1,
+                 shoulder_deadzone=0.07, leg_deadzone=0.075, foot_deadzone=0.075, homing_pitch=-0.065,
+                 max_joint_velocity=10, max_norm_height=0.235, max_linear_velocity=2.23, max_forward_linear_velocity=2.0, max_lateral_linear_velocity=1.0, max_angular_velocity=5,
+                 joint_history_maxlen=5
+            ):
+        
+        self.config = config
         self._action_space_size = action_space_size
         self._controller = Controller(device)
         self._env = env
 
-        # --- State ---
+        #<----- PARAMTERS INITIALIZATION ----->
+        self.homing_pitch = homing_pitch
+        self.max_joint_velocity = max_joint_velocity
+        self.max_norm_height = max_norm_height
+        self.max_linear_velocity = max_linear_velocity
+        self.max_forward_linear_velocity = max_forward_linear_velocity
+        self.max_lateral_linear_velocity = max_lateral_linear_velocity
+        self.max_angular_velocity = max_angular_velocity
+        self.joint_history_maxlen = joint_history_maxlen
+
+        # <----- State ----->
         self._state = AgentState(
-            base_position=np.array([0.0, 0.0, self._env.config.spawn_height]),
-            base_orientation=pybullet.getQuaternionFromEuler([0, self._config.homing_pitch, np.pi]),
+            base_position=np.array([0.0, 0.0, self._env.spawn_height]), #TODO: spawn_height must be deduced, it cannot be (only) a manual parameter
+            base_orientation=pybullet.getQuaternionFromEuler([0, self.homing_pitch, np.pi]),
         )
         self._action = np.zeros(self._action_space_size, dtype=np.float32)
         self._previous_action = np.zeros(self._action_space_size, dtype=np.float32)
-        self._joint_history = deque(maxlen=self.config.joint_history_maxlen) # It will hold tuples with np.ndarray of joint_positions and joint_velocities
+        self._joint_history = deque(maxlen=self.joint_history_maxlen) # It will hold tuples with np.ndarray of joint_positions and joint_velocities
 
         urdf_path = str(files("spotmicro.data").joinpath("spotmicroai.urdf"))
         # --- Load URDF ---
@@ -203,7 +218,11 @@ class Agent:
 
             if joint_type == pybullet.JOINT_REVOLUTE:
                 joint_category = joint_name.split("_")[-1]
-                joint = Joint(joint_name, i, joint_link_id, joint_category, joint_limits, self._config)
+                joint = Joint(
+                    joint_name, i, joint_link_id, joint_category, joint_limits, 
+                    joint_max_torque, shoulder_deadzone, leg_deadzone, foot_deadzone, left_shoulder_hp, right_shoulder_hp,
+                    front_legs_hp, rear_legs_hp, front_feet_hp, rear_feet_hp 
+                    )
                 motor_joints.append(joint)
                 homing_positions.append(joint.homing_position)
 
@@ -224,7 +243,7 @@ class Agent:
 
         self._state = AgentState(
             base_position=np.array([0.0, 0.0, spawn_heigt]),
-            base_orientation=pybullet.getQuaternionFromEuler([0, self._config.homing_pitch, np.pi]),
+            base_orientation=pybullet.getQuaternionFromEuler([0, self.homing_pitch, np.pi]),
             #linear_velocity=np.array([0.0, 0.0, 0.0])
             #angular_velocity=np.array([0.0, 0.0, 0.0])
         )#
@@ -260,6 +279,9 @@ class Agent:
         # Reset actions to "homing" which is 0
         self._action = np.zeros(len(self._motor_joints), dtype=np.float32)
         self._previous_action = np.zeros(len(self._motor_joints), dtype=np.float32)
+
+        #Reset controller
+        self.controller.reset()
     
     def apply_action(self, action: np.ndarray):
         """
@@ -369,10 +391,6 @@ class Agent:
         return self._state
 
     @property
-    def config(self) -> Config:
-        return self._config
-
-    @property
     def agent_id(self):
         return self._robot_id
 
@@ -391,13 +409,14 @@ class Agent:
     def action(self) -> np.ndarray:
         return self._action
     
+    #TODO: dunno why i put it here, makes much more sense for it to be in the env. Still...
     @property
     def joint_history(self) -> deque:
         return self._joint_history
     
     @joint_history.setter
     def joint_history(self, history: deque):
-        if isinstance(history, deque) and len(history) <= self._config.joint_history_maxlen:
+        if isinstance(history, deque) and len(history) <= self.config.joint_history_maxlen:
             self._joint_history = history
     
     @property
