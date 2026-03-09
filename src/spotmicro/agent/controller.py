@@ -1,22 +1,17 @@
 import numpy as np
 from spotmicro.agent.input import Input
-from spotmicro.devices.random_controller import RandomController
+from spotmicro.devices.device import Device
 
 class Controller():
-    def __init__(self):
-       self._device = None
-
-    #TODO: add parameters
-    @classmethod
-    def from_randomController(cls):
-        self = cls()
-        self._device = RandomController()
-        
-        return self
+    def __init__(self, device: Device):
+       self._device = device
 
     def update(self) -> None:
         #@TODO: probabily need to do more?
         self._device.update()
+    
+    def reset(self) -> None:
+        self._device.reset()
 
     @property
     def input(self) -> Input:
@@ -26,5 +21,6 @@ class Controller():
             
     def _check_sanity(self, i: Input) -> bool:
         i_arr = i.as_array
-        assert np.all((i_arr <= 1.0) & (i_arr >= -1.0)), "Input is not normalized"
+        if not np.all((i_arr <= 1.0) & (i_arr >= -1.0)):
+            raise ValueError("Input is not normalized")
         return True

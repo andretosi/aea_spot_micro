@@ -6,10 +6,11 @@ spot_micro/.vscode/
 venv/
 .venv/
 __pycache__
-spotmicroai.urdf
+
 policy_training/logs
 *.png
 *.txt
 dockerfile
 logs
 .egg-info
+.python-version
