@@ -42,6 +42,7 @@ class PyBulletRenderer(KG_Renderer):
         )
 
     def update(self, position, orientation, dt:float):
+        
         # Corpo della freccia
         if self.shaft_id is None:
             shaft_vs = p.createVisualShape(
@@ -110,8 +111,12 @@ class PyBulletRenderer(KG_Renderer):
                 physicsClientId=self.client_id
             )
 
-        rot_matrix = p.getMatrixFromQuaternion(orientation)
-        direction = np.array([rot_matrix[0], rot_matrix[1], rot_matrix[2]])
+        # build a rotation matrix for converting body-frame offsets to world
+        rot_matrix = np.array(p.getMatrixFromQuaternion(orientation)).reshape(3, 3)
+
+        def world_offset(local_vec: np.ndarray) -> np.ndarray:
+            # rotate a vector expressed in the arrow's frame into world coordinates
+            return rot_matrix @ local_vec
 
         draw_pos = position.copy()
         draw_pos[2] = 0.5
@@ -122,50 +127,36 @@ class PyBulletRenderer(KG_Renderer):
             [0, 0, 0], rot_to_x
         )
 
-        # Cilindro: centro a metà lunghezza
-        shaft_pos = np.array(draw_pos) - direction * 0.075
+        # local offsets along the arrow's x axis (positive = forward)
+        shaft_local = np.array([0.075, 0, 0])
+        head_local  = np.array([0.155, 0, 0])
+        cone1_local = np.array([0.165, 0, 0])
+        cone2_local = np.array([0.1725, 0, 0])
+
+        # compute world positions; negative local x gives "behind" the tip
+        shaft_pos = draw_pos + world_offset(-shaft_local)
         p.resetBasePositionAndOrientation(
             self.shaft_id, shaft_pos.tolist(), shaft_orientation,
             physicsClientId=self.client_id
         )
 
-        # Anello base: fine cilindro + metà sua lunghezza
-        head_pos = np.array(draw_pos) - direction * 0.155
+        head_pos = draw_pos + world_offset(-head_local)
         p.resetBasePositionAndOrientation(
             self.head_id, head_pos.tolist(), shaft_orientation,
             physicsClientId=self.client_id
         )
 
-        # Anello medio: fine head + metà sua lunghezza
-        cone1_pos = np.array(draw_pos) - direction * 0.165
+        cone1_pos = draw_pos + world_offset(-cone1_local)
         p.resetBasePositionAndOrientation(
             self.cone1_id, cone1_pos.tolist(), shaft_orientation,
             physicsClientId=self.client_id
         )
 
-        # Punta: fine cone1 + metà sua lunghezza
-        cone2_pos = np.array(draw_pos) - direction * 0.1725
+        cone2_pos = draw_pos + world_offset(-cone2_local)
         p.resetBasePositionAndOrientation(
             self.cone2_id, cone2_pos.tolist(), shaft_orientation,
             physicsClientId=self.client_id
         )
-
-        '''
-        # Linea originale
-        end = draw_pos - 0.3 * direction
-
-        if self.line_id is not None:
-            p.removeUserDebugItem(self.line_id, physicsClientId=self.client_id)
-
-        self.line_id = p.addUserDebugLine(
-            draw_pos,
-            end,
-            [1, 0, 0],
-            3,
-            lifeTime=0.3,
-            physicsClientId=self.client_id
-        )
-        '''
 
     def reset(self, start_pos, start_quat):
         self.update(start_pos, start_quat, dt=0.1)
