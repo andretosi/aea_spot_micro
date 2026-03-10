@@ -83,7 +83,7 @@ class SpotmicroEnv(gym.Env):
             - pitch: (of the base)
             - episode_step
 """
-    def __init__(self, device: Device, config: Config, reward_fn: callable, reward_state, use_gui=False, dest_save_file=None, src_save_file=None, writer=None,
+    def __init__(self, device: Device, config: Config, reward_fn: callable, reward_state, use_gui=False, ghost_on=False, dest_save_file=None, src_save_file=None, writer=None,
                  max_episode_len=3000, sim_frequency=240, control_frequency=60, joint_history_max_len=5,
                  min_height=0.15, max_height=0.4, max_pitchroll=0.96, tipping_penalty=-2, jump_fall_penalty=-100, survival_reward=3.0, 
                  spawn_height=0.230, target_body_to_feet_height=0.2
@@ -114,6 +114,7 @@ class SpotmicroEnv(gym.Env):
         #<----- INITIALIZATIONS ----->
         self.physics_client = None
         self.use_gui = use_gui
+        self.ghost_on = ghost_on
         self.np_random = None
         self.reward_state = reward_state
         self._episode_reward_info = None #history of the rewards during an episode, used to plot results
@@ -168,6 +169,7 @@ class SpotmicroEnv(gym.Env):
 
         self._reward_fn = reward_fn
 
+        # <-- PHYSICS_ENV: init? -->
         #Initialize pybullet: connects to the simulation server and sets the initial view
         if self.physics_client is None:
             self.physics_client = pybullet.connect(pybullet.GUI if self.use_gui else pybullet.DIRECT)
@@ -179,17 +181,11 @@ class SpotmicroEnv(gym.Env):
                 physicsClientId=self.physics_client
             )
 
-
-        # Renderer specifico (PyBullet o MuJoCo)
-        renderer = PyBulletRenderer(client_id=self.physics_client) 
-
-        # Ghost
-        self.ghost = KinematicGhost(renderer, self.dt)
-
         pybullet.resetSimulation(physicsClientId=self.physics_client)
         pybullet.setGravity(0, 0, -9.81, physicsClientId=self.physics_client)
         pybullet.setTimeStep(1/self.sim_frequency, physicsClientId=self.physics_client)
         pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
+        # <-- -->
         
         #Initialize the terrain object
         self._terrain = Terrain(self.physics_client, self.config)
@@ -198,6 +194,7 @@ class SpotmicroEnv(gym.Env):
         self._terrain_evo_coefficients = np.array([0.0, 0.0, 0.0]) 
         self._terrain.generate(self._terrain_evo_coefficients)
 
+        # <-- PHYSICS_ENV: attach terrain? -->
         pybullet.changeDynamics(
             bodyUniqueId=self._terrain.terrain_id,
             linkIndex=-1,
@@ -207,9 +204,14 @@ class SpotmicroEnv(gym.Env):
             restitution=0.0,
             physicsClientId=self.physics_client
         )
+        # <-- -->
         
         #Creating the agent (TODO: this being hear breaks the paradigm for configurable classes: need to keep this in mind when designing the next generation)
         self._agent = Agent(self, device, config, self._ACT_SPACE_SIZE) #TODO: overrides of the parameters of the agent must happen here (for now). Initialization of the agent should be independent of env creation
+
+        if ghost_on:
+            renderer = PyBulletRenderer(client_id=self.physics_client)  # Renderer specifico (PyBullet o MuJoCo)
+            self._ghost = KinematicGhost(renderer, self.dt)
 
         self._dest_save = dest_save_file
         if self._dest_save is not None:
@@ -269,9 +271,12 @@ class SpotmicroEnv(gym.Env):
         Method exposed and used by SB3.
         Cleans up the simulation, saves the state if a destination path is provided
         """
+
+        # <-- PHYSICS_ENV just close --> 
         if self.physics_client is not None:
             pybullet.disconnect(self.physics_client)
             self.physics_client = None
+        # <-- -->
 
         if self._dest_save is not None:
             self.save_state() 
@@ -304,7 +309,11 @@ class SpotmicroEnv(gym.Env):
         # Let physics settle with homing applied
         for _ in range(5):
             self._agent.apply_action(self._agent.default_actions) # Zeros because they map to homing positions
+
+            # <-- PHYSICS ENV: step simulation? -->
             pybullet.stepSimulation(physicsClientId=self.physics_client)
+            # <-- -->
+            
             self._agent.sync_state()
 
         # Sanity check reward function signature
@@ -323,7 +332,8 @@ class SpotmicroEnv(gym.Env):
         except Exception as e:
             raise ValueError(f"Error testing reward_fn: {str(e)}")
         
-        self.ghost.reset(start_pos=self._agent.state.base_position, start_quat=self._agent.state.base_orientation)
+        if self.ghost_on:
+            self._ghost.reset(start_pos=self._agent.state.base_position, start_quat=self._agent.state.base_orientation)
 
         return self._get_observation(), self._get_info()
     
@@ -420,7 +430,8 @@ class SpotmicroEnv(gym.Env):
         for _ in range(self.sim_frequency // self.control_frequnecy):
             pybullet.stepSimulation()
 
-            self.ghost.apply_command(self._agent.controller.input)
+            if self.ghost_on:
+                self._ghost.apply_command(self._agent.controller.input)
 
             if self.use_gui:
                 time.sleep(1/70.) # MAGIC NUMBER, MAKES THE SIMULATION LOOK REAL-TIME (not slow, not too fast)
