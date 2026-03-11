@@ -1,7 +1,7 @@
 #Assignee: virgina
 
-from spotmicro.devices.device import Device
-from spotmicro.agent.input import Input
+from src.spotmicro.devices.device import Device
+
 
 class Keyboard(Device):
     def __init__(self):

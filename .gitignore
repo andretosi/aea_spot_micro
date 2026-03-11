@@ -14,3 +14,4 @@ dockerfile
 logs
 .egg-info
 .python-version
+.idea/

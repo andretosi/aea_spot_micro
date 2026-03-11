@@ -1,12 +1,11 @@
 import time
-import numpy as np
 from stable_baselines3 import PPO
 from pathlib import Path
 
-from spotmicro.env.spotmicro_env import SpotmicroEnv
+from src.spotmicro.env.spotmicro_env_mujoco import SpotmicroEnv
 from reward_functions.walking_reward_function import reward_function, RewardState
-from spotmicro.devices.random_controller import RandomController
-from spotmicro.tools.config import Config
+from src.spotmicro import RandomController
+from src.spotmicro.tools.config import Config
 
 run = "prova2"
 DATA_DIR =  Path("data") / f"{run}_results"

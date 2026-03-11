@@ -5,10 +5,10 @@ It's actually quite useful to compare agains results obtained with a trained pol
 
 import time
 
-from spotmicro.env.spotmicro_env import SpotmicroEnv
+from src.spotmicro.env.spotmicro_env_mujoco import SpotmicroEnv
 from reward_functions.walking_reward_function import reward_function, RewardState
-from spotmicro.devices.random_controller import RandomController
-from spotmicro.tools.config import Config
+from src.spotmicro import RandomController
+from src.spotmicro.tools.config import Config
 
 cfg = Config("configs/test_config.yaml")
 dev = RandomController(cfg)
