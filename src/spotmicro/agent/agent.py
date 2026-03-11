@@ -180,10 +180,12 @@ class Agent:
         self.max_angular_velocity = max_angular_velocity
         self.joint_history_maxlen = joint_history_maxlen
 
+        self.ORIENTATION = [0, self.homing_pitch, np.pi]
+
         # <----- State ----->
         self._state = AgentState(
             base_position=np.array([0.0, 0.0, self._env.spawn_height]), #TODO: spawn_height must be deduced, it cannot be (only) a manual parameter
-            base_orientation=pybullet.getQuaternionFromEuler([0, self.homing_pitch, np.pi]),
+            base_orientation=pybullet.getQuaternionFromEuler(self.ORIENTATION),
         )
         self._action = np.zeros(self._action_space_size, dtype=np.float32)
         self._previous_action = np.zeros(self._action_space_size, dtype=np.float32)
@@ -243,7 +245,7 @@ class Agent:
 
         self._state = AgentState(
             base_position=np.array([0.0, 0.0, spawn_heigt]),
-            base_orientation=pybullet.getQuaternionFromEuler([0, self.homing_pitch, np.pi]),
+            base_orientation=pybullet.getQuaternionFromEuler(self.ORIENTATION),
             #linear_velocity=np.array([0.0, 0.0, 0.0])
             #angular_velocity=np.array([0.0, 0.0, 0.0])
         )#
