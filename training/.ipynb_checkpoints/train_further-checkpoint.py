@@ -1,11 +1,8 @@
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.callbacks import CheckpointCallback
-from pathlib import Path
 
-from src.spotmicro.env.spotmicro_env import SpotmicroEnv
-from src.spotmicro.devices.random_controller import RandomController
-from src.spotmicro.tools.config import Config
+from src.spotmicro.env.spotmicro_env_mujoco import SpotmicroEnv
 from reward_functions.walking_reward_function import reward_function, RewardState
 
 TOTAL_STEPS = 10_000_000
@@ -19,16 +16,12 @@ def clipped_linear_schedule(initial_value, min_value=1e-5):
     return schedule
 
 checkpoint_callback = CheckpointCallback(
-    save_freq=TOTAL_STEPS // 10,
+    save_freq=TOTAL_STEPS / 10,                
     save_path=f"policies/{run}_checkpoints",  # Folder to save in
     name_prefix=f"ppo_{run}"            # File name prefix
 )
 
-cfg = Config("configs/test_config.yaml")
-dev = RandomController(cfg)
 env = SpotmicroEnv(
-    dev,
-    cfg,
     use_gui=False,
     reward_fn=reward_function, 
     reward_state=RewardState(), 

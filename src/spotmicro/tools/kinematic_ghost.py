@@ -1,7 +1,7 @@
 import pybullet as p
 import numpy as np
-from spotmicro.tools.kg_renderer import KG_Renderer
-from spotmicro.agent.input import Input
+from src.spotmicro.tools.kg_renderer import KG_Renderer
+from src.spotmicro.agent.input import Input
 
 class KinematicGhost():
     
