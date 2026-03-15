@@ -6,13 +6,13 @@ import matplotlib.pyplot as plt
 import inspect, os, pickle, warnings
 from importlib.resources import files
 
-from src.spotmicro.physics.backend import PhysicsBackend
-from src.spotmicro.tools.config import Config
-from src.spotmicro.tools.configurable import configurable
-from src.spotmicro.agent.agent import Agent
-from src.spotmicro.devices.device import Device
-from src.spotmicro.tools.kinematic_ghost import KinematicGhost
-from src.spotmicro.tools.kg_renderer import KG_Renderer, PyBulletRenderer
+from spotmicro.physics.backend import PhysicsBackend
+from spotmicro.tools.config import Config
+from spotmicro.tools.configurable import configurable
+from spotmicro.agent.agent import Agent
+from spotmicro.devices.device import Device
+from spotmicro.tools.kinematic_ghost import KinematicGhost
+from spotmicro.tools.kg_renderer import KG_Renderer, PyBulletRenderer
 
 @configurable
 class SpotmicroEnv(gym.Env):
@@ -124,10 +124,10 @@ class SpotmicroEnv(gym.Env):
             return model_path
 
         if self._backend.engine_name == "mujoco":
-            return str(files("src.spotmicro.data").joinpath("spotmicroai.mujoco.xml"))
+            return str(files("spotmicro.data").joinpath("spotmicroai.mujoco.xml"))
 
         if self._backend.engine_name == "pybullet":
-            return str(files("src.spotmicro.data").joinpath("spotmicroai.urdf"))
+            return str(files("spotmicro.data").joinpath("spotmicroai.urdf"))
 
         raise ValueError(
             f"Could not infer a model path for backend {self._backend.engine_name!r}. "
