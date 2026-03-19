@@ -4,21 +4,40 @@ It's actually quite useful to compare agains results obtained with a trained pol
 """
 
 import time
+import sys
+from pathlib import Path
 
-from src.spotmicro.env.spotmicro_env_mujoco import SpotmicroEnv
+ROOT_DIR = Path(__file__).resolve().parents[1]
+SRC_DIR = ROOT_DIR / "src"
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from spotmicro.env.spotmicro_env import SpotmicroEnv
+from spotmicro.physics.factory import create_backend
 from reward_functions.walking_reward_function import reward_function, RewardState
 
-from src.spotmicro.devices.random_controller import RandomController
-from src.spotmicro.devices.fixed_controller import FixedController
-from src.spotmicro.tools.config import Config
+from spotmicro.devices.random_controller import RandomController
+from spotmicro.devices.fixed_controller import FixedController
+from spotmicro.tools.config import Config
 
-cfg = Config("configs/test_config.yaml")
+BASE_DIR = Path(__file__).resolve().parent
+cfg = Config(str(BASE_DIR / "configs" / "test_config.yaml"))
 #dev = RandomController(cfg)
 dev = FixedController(mode="walk")
-env = SpotmicroEnv(dev, cfg, reward_function, RewardState(), use_gui=True, ghost_on=True)
+backend = create_backend("pybullet", use_gui=True)
+env = SpotmicroEnv(
+    backend=backend,
+    device=dev,
+    config=cfg,
+    reward_fn=reward_function,
+    reward_state=RewardState(),
+    use_gui=True,
+)
 obs, _ = env.reset()
 
-cfg.save("configs/test_config2.yaml")
+cfg.save(str(BASE_DIR / "configs" / "test_config2.yaml"))
 
 for _ in range(3001):
     action = env.action_space.sample()  # Take a random action

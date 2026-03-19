@@ -1,16 +1,26 @@
+import sys
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.callbacks import CheckpointCallback
 from pathlib import Path
 
-from src.spotmicro.env.spotmicro_env import SpotmicroEnv
-from src.spotmicro.devices.random_controller import RandomController
-from src.spotmicro.tools.config import Config
+ROOT_DIR = Path(__file__).resolve().parents[1]
+SRC_DIR = ROOT_DIR / "src"
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from spotmicro.env.spotmicro_env import SpotmicroEnv
+from spotmicro.devices.random_controller import RandomController
+from spotmicro.physics.factory import create_backend
+from spotmicro.tools.config import Config
 from reward_functions.standing_reward_function import reward_function, RewardState
 
 TOTAL_STEPS = 5_000_000
 run = "prova2"
-DATA_DIR =  Path("data") / f"{run}_results"
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "data" / f"{run}_results"
 DATA_DIR.mkdir(parents=True, exist_ok=True)  # ensure directory exists
 
 def clipped_linear_schedule(initial_value, min_value=1e-5):
@@ -19,16 +29,18 @@ def clipped_linear_schedule(initial_value, min_value=1e-5):
     return schedule
 
 checkpoint_callback = CheckpointCallback(
-    save_freq=TOTAL_STEPS / 15,                
+    save_freq=TOTAL_STEPS // 15,
     save_path=str(DATA_DIR / "checkpoints"),  # Folder to save in
     name_prefix=f"ppo_{run}"            # File name prefix
 )
 
-cfg = Config("configs/test_config.yaml")
+cfg = Config(str(BASE_DIR / "configs" / "test_config.yaml"))
 dev = RandomController(cfg)
+backend = create_backend("pybullet", use_gui=False)
 env = SpotmicroEnv(
-    dev,
-    cfg,
+    backend=backend,
+    device=dev,
+    config=cfg,
     use_gui=False,
     reward_fn=reward_function, 
     reward_state=RewardState(), 
