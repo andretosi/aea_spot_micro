@@ -6,6 +6,7 @@ from pathlib import Path
 from spotmicro.env.spotmicro_env import SpotmicroEnv
 from reward_functions.standing_reward_function import reward_function, RewardState
 from spotmicro.devices.random_controller import RandomController
+from spotmicro.devices.keyboard_device import Keyboard
 from spotmicro.tools.config import Config
 
 run = "prova2"
@@ -13,11 +14,13 @@ DATA_DIR =  Path("data") / f"{run}_results"
 DATA_DIR.mkdir(parents=True, exist_ok=True)  # ensure directory exists
 
 conf = Config("configs/test_config.yaml")
-dev = RandomController(conf)
+#dev = RandomController(conf)
+dev = Keyboard()
 env = SpotmicroEnv(
     dev,
     conf,
-    use_gui=True, 
+    use_gui=True,
+    ghost_on=True, 
     reward_fn=reward_function,
     reward_state=RewardState(),
     #src_save_file=str(DATA_DIR / f"{run}.pkl")
