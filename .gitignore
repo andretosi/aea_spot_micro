@@ -14,5 +14,4 @@ dockerfile
 logs
 .egg-info
 .python-version
-.idea/
 .ipynb_checkpoints/
