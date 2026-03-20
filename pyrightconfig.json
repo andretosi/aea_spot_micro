@@ -1,7 +1,4 @@
 {
     "stubPath": "stubs",
-    "typeCheckingMode": "off",
-    "venvPath": ".",
-    "venv": ".venv",
-    "extraPaths": ["src", "training"]
+    "typeCheckingMode": "off"
 }
