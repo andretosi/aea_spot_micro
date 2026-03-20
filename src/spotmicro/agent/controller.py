@@ -1,6 +1,6 @@
 import numpy as np
-from src.spotmicro.agent.input import Input
-from src.spotmicro.devices.device import Device
+from spotmicro.agent.input import Input
+from spotmicro.devices.device import Device
 
 class Controller():
     def __init__(self, device: Device):
@@ -20,7 +20,7 @@ class Controller():
             return i
             
     def _check_sanity(self, i: Input) -> bool:
-        i_arr = i.as_array
+        i_arr = i if isinstance(i, np.ndarray) else i.as_array
         if not np.all((i_arr <= 1.0) & (i_arr >= -1.0)):
             raise ValueError("Input is not normalized")
         return True

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from spotmicro.env.spotmicro_env import SpotmicroEnv
 #from spotmicro.devices.random_controller import RandomController
-from spotmicro.devices.keyboard_device import Keyboard
+from spotmicro.devices.joystick_device import Joystick
 
 from reward_functions.standing_reward_function import reward_function, RewardState
 from spotmicro.devices.random_controller import RandomController
@@ -16,7 +16,7 @@ DATA_DIR =  Path("data") / f"{run}_results"
 DATA_DIR.mkdir(parents=True, exist_ok=True)  # ensure directory exists
 
 #dev = RandomController()
-dev = Keyboard()    #ora usa la tastiera
+dev = Joystick()    #ora usa la tastiera
 
 conf = Config("configs/test_config.yaml")
 

@@ -29,7 +29,7 @@ def reward_function(env: SpotmicroEnv, action: np.ndarray) -> tuple[float, dict]
     roll, pitch, _ = env.agent.state.roll_pitch_yaw
 
     # Input velocities in robot frame
-    vx_i, vy_i, w_i = tuple(env.agent.controller.input.as_array)
+    vx_i, vy_i, w_i = tuple(env.agent.controller.input)
     # Target linear velocity in world frame
     target_linear_velocity = np.array(
         pybullet.getMatrixFromQuaternion(env.agent.state.base_orientation)
