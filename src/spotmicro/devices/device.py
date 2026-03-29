@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from spotmicro.agent.input import Input
-import numpy as np
+
 
 class Device(ABC):
     @abstractmethod
