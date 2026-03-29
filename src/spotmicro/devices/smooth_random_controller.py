@@ -1,7 +1,7 @@
 #Assignee: filippo
 
-from src.spotmicro.devices.device import Device
-from src.spotmicro.agent.input import Input
+from spotmicro.devices.device import Device
+from spotmicro.agent.input import Input
 import numpy as np
 import random 
 import math

@@ -5,17 +5,26 @@ It's actually quite useful to compare agains results obtained with a trained pol
 
 import time
 
-from src.spotmicro.env.spotmicro_env_mujoco import SpotmicroEnv
+from spotmicro.env.spotmicro_env_mujoco import SpotmicroEnv
 from reward_functions.walking_reward_function import reward_function, RewardState
 
-from src.spotmicro.devices.random_controller import RandomController
-from src.spotmicro.devices.fixed_controller import FixedController
-from src.spotmicro.tools.config import Config
+from spotmicro.devices.random_controller import RandomController
+from spotmicro.devices.fixed_controller import FixedController
+from spotmicro.tools.config import Config
 
 cfg = Config("configs/test_config.yaml")
 #dev = RandomController(cfg)
 dev = FixedController(mode="walk")
-env = SpotmicroEnv(dev, cfg, reward_function, RewardState(), use_gui=True, ghost_on=True)
+backend = create_backend("pybullet", use_gui=False)
+env = SpotmicroEnv(
+    backend,
+    dev,
+    cfg,
+    reward_function,
+    RewardState(),
+    use_gui=True,
+    ghost_on=True
+)
 obs, _ = env.reset()
 
 cfg.save("configs/test_config2.yaml")

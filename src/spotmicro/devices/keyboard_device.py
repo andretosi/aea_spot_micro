@@ -1,6 +1,6 @@
 #Assignee: virgina
 
-from src.spotmicro.devices.device import Device
+from spotmicro.devices.device import Device
 
 
 class Keyboard(Device):
