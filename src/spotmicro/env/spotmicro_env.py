@@ -34,7 +34,7 @@ class SpotmicroEnv(gym.Env):
                  use_gui=False, tracker_on=False, dest_save_file=None, src_save_file=None, writer=None,
                  max_episode_len=3000, sim_frequency=240, control_frequency=60, joint_history_max_len=5,
                  min_height=0.15, max_height=0.4, max_pitchroll=0.96, tipping_penalty=-2, jump_fall_penalty=-100, survival_reward=3.0, 
-                 spawn_height=0.230, target_body_to_feet_height=0.2, ghost_on=False
+                 spawn_height=0.230, ghost_on=False
                 ):
         super().__init__()
         self.config = config
@@ -75,7 +75,7 @@ class SpotmicroEnv(gym.Env):
         self.jump_fall_penalty = jump_fall_penalty
         self.survival_reward = survival_reward
         self.spawn_height = spawn_height
-        self.target_body_to_feet_height = target_body_to_feet_height
+
 
         # Tempo fisico della simulazione
         self.dt = 1.0 / self.sim_frequency
@@ -93,7 +93,7 @@ class SpotmicroEnv(gym.Env):
             spawn_height=self.spawn_height,
             device=device,
             config=config,
-            action_space_size=self._ACT_SPACE_SIZE,
+            action_space_size=self._ACT_SPACE_SIZE
         )
 
         if ghost_on:
@@ -294,7 +294,7 @@ class SpotmicroEnv(gym.Env):
         """
         obs = []
         obs.extend(self._get_gravity_vector())
-        obs.append((self._agent.state.base_position[2] - self.target_body_to_feet_height) / self._agent.max_norm_height)
+        obs.append((self._agent.state.base_position[2] - self._agent.target_body_to_feet_height) / self._agent.max_norm_height)
         obs.extend(self._agent.state.linear_velocity / self._agent.max_linear_velocity)
         obs.extend(self._agent.state.angular_velocity / self._agent.max_angular_velocity)
         obs.extend(self._joint_positions_norm(self._agent.state.joint_positions)) 
