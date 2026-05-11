@@ -20,7 +20,7 @@ class Controller():
             return i
             
     def _check_sanity(self, i: Input) -> bool:
-        i_arr = i.as_array
+        i_arr = i if isinstance(i, np.ndarray) else i.as_array
         if not np.all((i_arr <= 1.0) & (i_arr >= -1.0)):
             raise ValueError("Input is not normalized")
         return True

@@ -8,7 +8,7 @@ class FixedController(Device):
     - Train an agnt to walk forward at a constant pace (only non-zero input will be vx)
     """
 
-    def __init__(self, mode: str = "still"):
+    def __init__(self, mode: str = "walk"):
         if mode in ["still", "walk"]:
             self.mode = mode
         else:
