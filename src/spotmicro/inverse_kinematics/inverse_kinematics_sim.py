@@ -26,7 +26,6 @@ plane_id = p.loadURDF("plane.urdf")
 
 # Uploading the robot
 urdf_file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data/spotmicroai.urdf")
-print("URDF file path:", urdf_file_path)
 start_pos = [0, 0, 0.26]
 start_orientation = p.getQuaternionFromEuler([0, 0, np.pi])
 
