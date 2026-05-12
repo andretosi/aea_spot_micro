@@ -2,6 +2,7 @@ import pybullet as p
 import pybullet_data
 import numpy as np
 import time
+import os
 
 # MODES
 # Boolean - the body is fixed in the air
@@ -24,13 +25,15 @@ p.setAdditionalSearchPath(pybullet_data.getDataPath())
 plane_id = p.loadURDF("plane.urdf")
 
 # Uploading the robot
+urdf_file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data/spotmicroai.urdf")
+print("URDF file path:", urdf_file_path)
 start_pos = [0, 0, 0.26]
 start_orientation = p.getQuaternionFromEuler([0, 0, np.pi])
 
 if model_mode or suspended:
-    spot_id = p.loadURDF("spotmicroai.urdf", start_pos, start_orientation, useFixedBase=True)
+    spot_id = p.loadURDF(urdf_file_path, start_pos, start_orientation, useFixedBase=True)
 else:
-    spot_id = p.loadURDF("spotmicroai.urdf", start_pos, start_orientation)
+    spot_id = p.loadURDF(urdf_file_path, start_pos, start_orientation)
 
 # Extracting revolution joints
 num_joints = p.getNumJoints(spot_id)
