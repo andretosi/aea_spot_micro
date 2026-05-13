@@ -28,6 +28,11 @@ STEP_PERIOD = 0.35
 STEP_LENGTH = 0.09
 STEP_HEIGHT = 0.04
 STANCE_FACTOR = 0.8 # percentage of the step period that is spent in the stance phase (when the foot is on the ground)
+
+# Rest/initial positions for the joints in radians
+LEG_JOINTS_REST_POS = -np.pi / 4
+FOOT_JOINTS_REST_POS = np.pi / 2
+
 DT = 1./240.
 
 
@@ -50,17 +55,20 @@ def print_instructions_model_mode():
     print("     [ESC] to exit.")
     print("-" * 70)
 
-def reset_camera(body_id):
+def reset_camera(body_id, distance=0.8, yaw=0, pitch=-10):
     """reset the camera to a default position and orientation focusing on the given body
 
     Args:
         body_id (int): ID of the body
+        distance (float, optional): distance of the camera from the target. Defaults to 0.8.
+        yaw (float, optional): yaw of the camera in degrees. Defaults to 0.
+        pitch (float, optional): pitch of the camera in degrees. Defaults to -10.
     """
     base_position, _ = p.getBasePositionAndOrientation(body_id)
     p.resetDebugVisualizerCamera(
-        cameraDistance=0.8,
-        cameraYaw=0,
-        cameraPitch=-10,
+        cameraDistance=distance,
+        cameraYaw=yaw,
+        cameraPitch=pitch,
         cameraTargetPosition=base_position
     )
 
@@ -76,8 +84,9 @@ def main():
         plane_id = p.loadURDF("plane.urdf")
 
         # Uploading the robot
-        urdf_file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data/spotmicroai.urdf")
-        print(f"URDF file: {urdf_file_path}")
+        spotmicro_dir = os.path.dirname(os.path.dirname(__file__))
+        urdf_file_path = os.path.join(spotmicro_dir, "data/spotmicroai.urdf")
+
         start_pos = [0, 0, 0.26]
         start_orn = p.getQuaternionFromEuler([0, 0, np.pi])
 
@@ -86,22 +95,19 @@ def main():
         else:
             spot_id = p.loadURDF(urdf_file_path, start_pos, start_orn)
 
+        # Joints info
         num_joints = p.getNumJoints(spot_id)
         rev_joints_ids = extract_movable_joints_ids(spot_id)
+        joints_rest_pos = [0, LEG_JOINTS_REST_POS, FOOT_JOINTS_REST_POS] * 4 # Rest/initial position for every single joint
 
-        # Joints rest position
-        leg_joint_rest_pos = -np.pi / 4
-        foot_joint_rest_pos = np.pi / 2
-        joints_rest_pos = [0, leg_joint_rest_pos, foot_joint_rest_pos] * 4
-
-        # Toes indexes
+        # Toes (end-effectors) indexes
         fl_toe_id = [i for i in range(num_joints) if p.getJointInfo(spot_id, i)[12].decode('utf-8') == 'front_left_toe_link'][0]  # 6
         fr_toe_id = [i for i in range(num_joints) if p.getJointInfo(spot_id, i)[12].decode('utf-8') == 'front_right_toe_link'][0] # 11
         rl_toe_id = [i for i in range(num_joints) if p.getJointInfo(spot_id, i)[12].decode('utf-8') == 'rear_left_toe_link'][0]   # 16
         rr_toe_id = [i for i in range(num_joints) if p.getJointInfo(spot_id, i)[12].decode('utf-8') == 'rear_right_toe_link'][0]  # 21
         toes_ids = [fl_toe_id, fr_toe_id, rl_toe_id, rr_toe_id]
 
-        # Getting the toes rest positions in the body frame
+        # Toes rest positions in the body frame
         reset_robot(spot_id, joints_rest_pos, start_pos, start_orn) # Positioning the robot in the rest position to get the correct toes rest positions
         fl_toe_rest_pos = world_to_body(spot_id, p.getLinkState(spot_id, fl_toe_id)[0])
         fr_toe_rest_pos = world_to_body(spot_id, p.getLinkState(spot_id, fr_toe_id)[0])
@@ -153,7 +159,7 @@ def main():
                 # Increment the phase by a step. The modulo makes it loop between 0 and 1.
                 phase = (phase + DT / STEP_PERIOD) % 1.
 
-                # Calculate the target position of each foot in the body frame, then transform it to the world frame.
+                # Calculate the target position of each foot (toe) in the body frame, then transform it to the world frame.
                 # Legs on one diagonal are out of phase with the legs on the other diagonal.
                 fl_target = body_to_world(spot_id, walking_trajectory_local(fl_toe_rest_pos, phase, STEP_LENGTH, STEP_HEIGHT, STANCE_FACTOR))
                 fr_target = body_to_world(spot_id, walking_trajectory_local(fr_toe_rest_pos, (phase + 0.5) % 1., STEP_LENGTH, STEP_HEIGHT, STANCE_FACTOR))

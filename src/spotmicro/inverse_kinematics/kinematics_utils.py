@@ -24,7 +24,7 @@ def reset_robot(body_id,
                 joints_init_positions,
                 start_position=[0, 0, 1],
                 start_orientation=[0, 0, 0, 1]):
-    """Reset the robot position to the initial state
+    """Reset the robot and its joints to a given position
 
     Args:
         body_id (int): ID of the robot body
@@ -93,16 +93,16 @@ def world_to_body(body_id, world_position):
 
     return local_position
 
-def move_end_effectors(body_id, ee_ids, ee_targets):
+def move_end_effectors(body_id, end_eff_ids, end_eff_targets):
     """calculate kinematics and move the end effectors to the target positions
 
     Args:
         body_id (int): ID of the body
-        ee_ids (list[int]): end effectors link indexes
-        ee_targets (list[vec3]): list of target positions for the end effectors in the world frame
+        end_eff_ids (list[int]): end effectors link indexes
+        end_eff_targets (list[vec3]): list of target positions for the end effectors in the world frame
     """
 
-    solution = p.calculateInverseKinematics2(body_id, ee_ids, ee_targets)
+    solution = p.calculateInverseKinematics2(body_id, end_eff_ids, end_eff_targets)
 
     movable_joints_ids = extract_movable_joints_ids(body_id)
 
